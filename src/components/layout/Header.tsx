@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../../store/DataContext';
 import { cn } from '../../lib/utils';
+import MobileMenu from './MobileMenu';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -156,47 +157,14 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-gray/10 absolute w-full shadow-[0_10px_20px_rgba(0,0,0,0.08)]">
-          <div className="px-4 pt-2 pb-6 flex flex-col space-y-2">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={`#${link.id}`}
-                onClick={(e) => handleNavClick(e, link.id)}
-                className={cn(
-                  "block w-full text-left px-4 py-3 text-base font-bold rounded-md transition-colors outline-none",
-                  activeSection === link.id && pathname === '/'
-                    ? "text-[#1B3F7A] bg-[#F8F9FA]" 
-                    : "text-[#1F2937] hover:text-[#1B3F7A] hover:bg-[#F8F9FA]"
-                )}
-              >
-                {link.name}
-              </a>
-            ))}
-            <button
-              onClick={(e) => handleNavClick(e, 'ai-bot')}
-              className="block w-full text-left px-4 py-3 text-base font-bold rounded-md transition-colors outline-none text-[#1F2937] hover:text-[#1B3F7A] hover:bg-[#F8F9FA] flex items-center"
-            >
-              🤖 Бот
-            </button>
-
-            <div className="mt-4 pt-4 border-t border-gray/10 flex flex-col space-y-4">
-              <a href={`tel:${state.content.phone.replace(/[^+\d]/g, '')}`} className="flex items-center justify-center text-[#1B3F7A] font-bold bg-[#F8F9FA] p-3 rounded-md">
-                <Phone className="w-5 h-5 mr-3 text-[#1B3F7A]" />
-                {state.content.phone}
-              </a>
-              <button
-                onClick={(e) => handleNavClick(e, 'contact')}
-                className="block w-full text-center bg-[#1B3F7A] text-white px-5 py-4 rounded-md text-base font-bold transition-colors outline-none"
-              >
-                Обсудить задачу
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MobileMenu
+        isOpen={isMobileMenuOpen}
+        navLinks={navLinks}
+        activeSection={activeSection}
+        pathname={pathname}
+        phone={state.content.phone}
+        onNavClick={handleNavClick}
+      />
     </header>
   );
 }
