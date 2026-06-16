@@ -1,6 +1,7 @@
 import { ShieldCheck, ArrowRight } from 'lucide-react';
 import { useData } from '../../store/DataContext';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import CanvasParticles from './CanvasParticles';
 
 export default function Hero() {
@@ -65,23 +66,29 @@ export default function Hero() {
               Защитите бренд, продукт и разработки вашего бизнеса
             </h1>
             
-            <div className="text-[#1F2937] font-bold tracking-wide mb-6 text-sm sm:text-base relative z-10 animate-on-scroll stagger-1 flex items-center gap-2">
-              <span className="text-[#C8A028] text-xl leading-none">•</span>
-              {state.content.heroStatus}
+            <div className="flex flex-wrap gap-2 mb-8 relative z-10 animate-on-scroll stagger-1">
+              {state.content.heroStatus.split('·').map((badge, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 bg-white border border-[#1B3F7A]/15 text-[#1B3F7A] text-[13px] font-bold px-3 py-1.5 rounded-full shadow-sm">
+                  <span className="text-[#C8A028]">✓</span>
+                  {badge.trim()}
+                </span>
+              ))}
             </div>
-            
-            <p className="text-lg sm:text-xl text-[#1F2937] font-medium mb-10 max-w-2xl leading-relaxed relative z-10 animate-on-scroll stagger-2">
-              {state.content.heroSubtitle}
-            </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 mb-12 relative z-10 animate-on-scroll stagger-3">
-              <button 
+              <button
                 onClick={scrollToContact}
                 className="btn-pulse inline-flex items-center justify-center bg-[#1B3F7A] hover:bg-[#2960B0] text-white px-8 py-4 rounded-lg font-bold text-lg transition-all shadow-lg hover:-translate-y-1 group border-none outline-none"
               >
                 Обсудить задачу
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </button>
+              <Link
+                to="/services"
+                className="inline-flex items-center justify-center border-2 border-[#1B3F7A] text-[#1B3F7A] hover:bg-[#1B3F7A] hover:text-white px-8 py-4 rounded-lg font-bold text-lg transition-all"
+              >
+                Смотреть услуги
+              </Link>
             </div>
             
             <div className="flex flex-wrap gap-x-6 gap-y-3 text-[13px] font-bold text-[#6B7280] uppercase tracking-widest relative z-10 animate-on-scroll stagger-4">
