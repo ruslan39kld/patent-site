@@ -83,8 +83,8 @@ export default function Hero() {
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
-                onClick={() => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="inline-flex items-center justify-center border-2 border-[#1B3F7A] text-[#1B3F7A] hover:bg-[#1B3F7A] hover:text-white px-8 py-4 rounded-lg font-bold text-lg transition-all border-none outline-none"
+                onClick={() => { const el = document.getElementById('services'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                className="inline-flex items-center justify-center border-2 border-[#1B3F7A] text-[#1B3F7A] px-6 py-3 rounded-lg hover:bg-[#EEF3FB] transition-colors font-bold text-lg"
               >
                 Смотреть услуги
               </button>
