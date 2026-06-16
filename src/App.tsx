@@ -3,9 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
+import About from './pages/About';
+import Cases from './pages/Cases';
+import Contacts from './pages/Contacts';
+import Services from './pages/Services';
+import ServiceDetail from './pages/ServiceDetail';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import Pricing from './pages/Pricing';
@@ -36,7 +41,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="services/*" element={<Navigate to="/#contact" replace />} />
+          <Route path="about" element={<About />} />
+          <Route path="cases" element={<Cases />} />
+          <Route path="contacts" element={<Contacts />} />
+          <Route path="services" element={<Services />} />
+          <Route path="services/:slug" element={<ServiceDetail />} />
           <Route path="blog" element={<Blog />} />
           <Route path="blog/:slug" element={<BlogPost />} />
           <Route path="faq" element={<FAQ />} />
