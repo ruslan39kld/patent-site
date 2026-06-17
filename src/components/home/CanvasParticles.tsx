@@ -18,7 +18,7 @@ export default function CanvasParticles() {
     const spawnStar = (): Star => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      size: 3 + Math.random() * 2,
+      size: 5 + Math.random() * 3,
       phase: Math.random() * Math.PI * 2,
       speed: 0.4 + Math.random() * 0.4, // full fade cycle every ~2-4s
     });
@@ -27,6 +27,8 @@ export default function CanvasParticles() {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = '#FF6B35';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#FF6B35';
       ctx.beginPath();
       for (let i = 0; i < 4; i++) {
         const angle = (Math.PI / 2) * i;
@@ -103,7 +105,7 @@ export default function CanvasParticles() {
       stars.forEach(s => {
         s.phase += s.speed * 0.016;
         const alpha = (Math.sin(s.phase) + 1) / 2;
-        drawStar(s.x, s.y, s.size, alpha * 0.9);
+        drawStar(s.x, s.y, s.size, alpha);
         if (s.phase > Math.PI * 2) {
           s.phase -= Math.PI * 2;
           if (Math.random() < 0.3) {

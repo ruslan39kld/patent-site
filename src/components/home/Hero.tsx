@@ -59,10 +59,17 @@ export default function Hero() {
               </div>
             </div>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1B3F7A] leading-[1.1] mb-4 tracking-tight relative z-10 animate-on-scroll stagger-1">
+            <h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1B3F7A] leading-[1.1] mb-4 tracking-tight relative z-10 animate-on-scroll stagger-1"
+              style={{ textShadow: '0 0 30px rgba(200, 160, 40, 0.4), 0 0 60px rgba(200, 160, 40, 0.2), 0 0 100px rgba(200, 160, 40, 0.1)' }}
+            >
               Защитите бренд, продукт и разработки вашего бизнеса
             </h1>
-            
+
+            <p className="text-base text-[#4A5568] mt-3 max-w-lg leading-relaxed relative z-10 animate-on-scroll stagger-1">
+              Регистрация товарных знаков, защита дизайна, программного обеспечения и технических решений с патентным поверенным РФ №1558 Викторией Тарасовой
+            </p>
+
             <div className="flex flex-col sm:flex-row gap-4 mb-12 relative z-10 animate-on-scroll stagger-3">
               <button
                 onClick={scrollToContact}
