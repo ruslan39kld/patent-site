@@ -1,4 +1,4 @@
-import { Menu, Phone, X, ShieldCheck } from 'lucide-react';
+import { Menu, X, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../../store/DataContext';
@@ -125,20 +125,6 @@ export default function Header() {
               🤖 Бот
             </button>
           </nav>
-
-          {/* Desktop Contacts */}
-          <div className="hidden lg:flex items-center space-x-6">
-             <a href={`tel:${state.content.phone.replace(/[^+\d]/g, '')}`} className="flex items-center text-[#1F2937] font-bold hover:text-[#1B3F7A] transition-colors group">
-               <Phone className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform text-[#1B3F7A]" />
-               {state.content.phone}
-             </a>
-             <button
-              onClick={(e) => handleNavClick(e, 'contact')}
-              className="bg-[#1B3F7A] hover:bg-[#2960B0] text-white px-5 py-2.5 rounded-md text-sm font-bold transition-all hover:shadow-[0_4px_14px_0_rgba(27,63,122,0.2)] hover:-translate-y-0.5 outline-none"
-             >
-               Обсудить задачу
-             </button>
-          </div>
 
           {/* Mobile menu button */}
           <div className="flex items-center lg:hidden">

@@ -12,6 +12,38 @@ export default function CanvasParticles() {
     let particles: { x: number, y: number, vx: number, vy: number }[] = [];
     let animationFrameId: number;
 
+    type Star = { x: number, y: number, size: number, phase: number, speed: number };
+    let stars: Star[] = [];
+
+    const spawnStar = (): Star => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: 3 + Math.random() * 2,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.4 + Math.random() * 0.4, // full fade cycle every ~2-4s
+    });
+
+    const drawStar = (cx: number, cy: number, size: number, alpha: number) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#FF6B35';
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const angle = (Math.PI / 2) * i;
+        const outerX = cx + Math.cos(angle) * size;
+        const outerY = cy + Math.sin(angle) * size;
+        const innerAngle = angle + Math.PI / 4;
+        const innerX = cx + Math.cos(innerAngle) * (size * 0.35);
+        const innerY = cy + Math.sin(innerAngle) * (size * 0.35);
+        if (i === 0) ctx.moveTo(outerX, outerY);
+        else ctx.lineTo(outerX, outerY);
+        ctx.lineTo(innerX, innerY);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
     const resize = () => {
       const parent = canvas.parentElement;
       if (parent) {
@@ -30,6 +62,11 @@ export default function CanvasParticles() {
         vx: (Math.random() - 0.5) * 0.5,
         vy: (Math.random() - 0.5) * 0.5
       });
+    }
+
+    const starCount = 5 + Math.floor(Math.random() * 3); // 5-7 stars
+    for (let i = 0; i < starCount; i++) {
+      stars.push(spawnStar());
     }
 
     const draw = () => {
@@ -63,6 +100,19 @@ export default function CanvasParticles() {
           }
         }
       }
+      stars.forEach(s => {
+        s.phase += s.speed * 0.016;
+        const alpha = (Math.sin(s.phase) + 1) / 2;
+        drawStar(s.x, s.y, s.size, alpha * 0.9);
+        if (s.phase > Math.PI * 2) {
+          s.phase -= Math.PI * 2;
+          if (Math.random() < 0.3) {
+            s.x = Math.random() * canvas.width;
+            s.y = Math.random() * canvas.height;
+          }
+        }
+      });
+
       animationFrameId = requestAnimationFrame(draw);
     };
     draw();
