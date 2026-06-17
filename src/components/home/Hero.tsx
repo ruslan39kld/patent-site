@@ -1,10 +1,8 @@
 import { ShieldCheck, ArrowRight } from 'lucide-react';
-import { useData } from '../../store/DataContext';
 import { useEffect, useState } from 'react';
 import CanvasParticles from './CanvasParticles';
 
 export default function Hero() {
-  const { state } = useData();
   const [years, setYears] = useState(0);
 
   useEffect(() => {
@@ -65,15 +63,6 @@ export default function Hero() {
               Защитите бренд, продукт и разработки вашего бизнеса
             </h1>
             
-            <div className="flex flex-wrap gap-2 mb-8 relative z-10 animate-on-scroll stagger-1">
-              {state.content.heroStatus.split('·').map((badge, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 bg-white border border-[#1B3F7A]/15 text-[#1B3F7A] text-[13px] font-bold px-3 py-1.5 rounded-full shadow-sm">
-                  <span className="text-[#C8A028]">✓</span>
-                  {badge.trim()}
-                </span>
-              ))}
-            </div>
-
             <div className="flex flex-col sm:flex-row gap-4 mb-12 relative z-10 animate-on-scroll stagger-3">
               <button
                 onClick={scrollToContact}
@@ -89,19 +78,10 @@ export default function Hero() {
                 Смотреть услуги
               </button>
             </div>
-            
-            <div className="flex flex-wrap gap-x-6 gap-y-3 text-[13px] font-bold text-[#6B7280] uppercase tracking-widest relative z-10 animate-on-scroll stagger-4">
-               {['Бренды', 'Маркетплейсы', 'IT-продукты', 'Патенты', 'Дизайн', 'Авторские права'].map((item, index) => (
-                 <div key={index} className="flex items-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#1B3F7A] mr-2"></div>
-                    {item}
-                 </div>
-               ))}
-            </div>
           </div>
-          
+
           <div className="lg:col-span-5 relative hidden lg:block animate-on-scroll stagger-2">
-            <div 
+            <div
               className="photo-placeholder relative rounded-[20px] overflow-hidden max-w-[400px] mx-auto lg:ml-auto h-[500px] flex items-center justify-center shadow-[0_20px_40px_rgba(27,63,122,0.1)] transition-transform duration-500 hover:-translate-y-2"
               style={{ background: 'linear-gradient(135deg, #E8EEF8 0%, #D0DDF5 100%)' }}
             >
@@ -113,8 +93,17 @@ export default function Hero() {
               <div className="absolute -top-10 -right-10 w-[160px] h-[160px] rounded-full bg-[#C8A028]/15 z-10 mix-blend-multiply blur-sm"></div>
               <div className="absolute -bottom-16 -left-16 w-[240px] h-[240px] rounded-full bg-[#1B3F7A]/10 z-10 mix-blend-multiply blur-sm"></div>
             </div>
+
+            <div className="flex flex-wrap justify-center text-center gap-x-6 gap-y-3 text-[13px] font-bold text-[#6B7280] uppercase tracking-widest relative z-10 mt-8 animate-on-scroll stagger-4">
+               {['Бренды', 'Маркетплейсы', 'IT-продукты', 'Патенты', 'Дизайн', 'Авторские права'].map((item, index) => (
+                 <div key={index} className="flex items-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#1B3F7A] mr-2"></div>
+                    {item}
+                 </div>
+               ))}
+            </div>
           </div>
-          
+
         </div>
 
         {/* Statistics Block */}
