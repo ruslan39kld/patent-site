@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { AppState } from '../types';
 import { initialData } from './initialData';
 
@@ -7,63 +7,34 @@ interface DataContextType {
   updateState: (newState: AppState) => void;
   resetState: () => void;
   addLead: (lead: Omit<AppState['leads'][0], 'id' | 'date'>) => void;
+  isLoaded: boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('tarasova_patent_data');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        parsed.cases = initialData.cases;
-        parsed.prices = initialData.prices;
-        parsed.reviews = initialData.reviews;
-        parsed.leadMagnets = initialData.leadMagnets;
-        
-        // Merge missing content keys
-        const mergedContent = { ...initialData.content };
-        if (parsed.content) {
-          for (const key in parsed.content) {
-            if (parsed.content[key] !== undefined) {
-              (mergedContent as any)[key] = parsed.content[key];
-            }
-          }
-          // Force fix for badges: if they had exactly 3, add the 4th back in
-          if (mergedContent.badges && mergedContent.badges.length === 3) {
-            mergedContent.badges = initialData.content.badges;
-          }
-        }
-        parsed.content = mergedContent;
-        
-        // Restore the full FAQ list since user requested all original questions back
-        if (!parsed.faqItems || parsed.faqItems.length < 15) {
-          parsed.faqItems = initialData.faqItems;
-        }
-        
-        // Ensure stats exists
-        if (!parsed.stats) {
-          parsed.stats = {
-            totalVisits: 0,
-            todayVisits: 0,
-            lastVisitDate: new Date().toISOString().split('T')[0],
-            viewsHistory: []
-          };
-        }
-        
-        return parsed;
-      } catch (e) {
-        return initialData;
-      }
-    }
-    return initialData;
-  });
+  const [state, setState] = useState<AppState>(initialData);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const saveTimeout = useRef<ReturnType<typeof setTimeout>>();
 
+  // Load data from the server on first mount.
   useEffect(() => {
-    // Record visit on mount
+    fetch('/api/data')
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.statusText)))
+      .then((data: Partial<AppState>) => {
+        setState((prev) => ({ ...prev, ...data }));
+      })
+      .catch((e) => {
+        console.warn('Не удалось загрузить данные с сервера, использую дефолтные:', e);
+      })
+      .finally(() => setIsLoaded(true));
+  }, []);
+
+  // Record visit stats once data is loaded.
+  useEffect(() => {
+    if (!isLoaded) return;
     const today = new Date().toISOString().split('T')[0];
-    setState(prev => {
+    setState((prev) => {
       const currentStats = prev.stats || {
         totalVisits: 0,
         todayVisits: 0,
@@ -73,18 +44,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       const isNewDay = currentStats.lastVisitDate !== today;
       let newHistory = [...(currentStats.viewsHistory || [])];
-      
+
       if (isNewDay && currentStats.todayVisits > 0) {
-        // Save yesterday's stats if it wasn't saved already
         const lastDateInHistory = newHistory.length > 0 ? newHistory[newHistory.length - 1].date : null;
         if (lastDateInHistory !== currentStats.lastVisitDate) {
           newHistory.push({ date: currentStats.lastVisitDate, visits: currentStats.todayVisits });
-          // keep last 7 days optionally
         }
       }
-
-      // Check if today already exists in history and we just need to update it? 
-      // Actually, we can just push yesterday, and today is tracked in todayVisits.
 
       return {
         ...prev,
@@ -96,11 +62,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       };
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
+  // Persist to the server (debounced) whenever state changes after load.
   useEffect(() => {
-    localStorage.setItem('tarasova_patent_data', JSON.stringify(state));
-  }, [state]);
+    if (!isLoaded) return;
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      }).catch((e) => console.warn('Не удалось сохранить данные на сервере:', e));
+    }, 500);
+    return () => clearTimeout(saveTimeout.current);
+  }, [state, isLoaded]);
 
   const updateState = (newState: AppState) => {
     setState(newState);
@@ -123,7 +100,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DataContext.Provider value={{ state, updateState, resetState, addLead }}>
+    <DataContext.Provider value={{ state, updateState, resetState, addLead, isLoaded }}>
       {children}
     </DataContext.Provider>
   );

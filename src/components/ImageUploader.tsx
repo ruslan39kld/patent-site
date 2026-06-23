@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, X, RefreshCw, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, X, RefreshCw, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface ImageUploaderProps {
@@ -19,9 +19,10 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setError(null);
     if (!file.type.startsWith('image/')) {
       setError('Поддерживаются только изображения');
@@ -32,12 +33,22 @@ export default function ImageUploader({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      onChange(result);
-    };
-    reader.readAsDataURL(file);
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || 'Ошибка загрузки');
+      }
+      const data = await res.json();
+      onChange(data.url);
+    } catch (e: any) {
+      setError(e.message || 'Не удалось загрузить файл');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const onDrag = (e: React.DragEvent) => {
@@ -117,9 +128,13 @@ export default function ImageUploader({
             error ? "border-red-400 bg-red-50" : ""
           )}
         >
-          <UploadCloud className={cn("w-8 h-8 mb-2", dragActive ? "text-[#1B3F7A]" : "text-[#64748B]")} />
+          {isUploading ? (
+            <Loader2 className="w-8 h-8 mb-2 text-[#1B3F7A] animate-spin" />
+          ) : (
+            <UploadCloud className={cn("w-8 h-8 mb-2", dragActive ? "text-[#1B3F7A]" : "text-[#64748B]")} />
+          )}
           <div className="text-sm font-medium text-[#1E293B] mb-1">
-            Перетащите фото
+            {isUploading ? 'Загрузка...' : 'Перетащите фото'}
           </div>
           <div className="text-xs text-[#64748B]">или нажмите для выбора</div>
         </div>
