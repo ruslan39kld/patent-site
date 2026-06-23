@@ -1,0 +1,8 @@
+{
+  "name": "Сайт Патентного Поверенного",
+  "description": "Профессиональный сайт патентного поверенного РФ №1558 Тарасовой Виктории Николаевны.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
