@@ -1,15 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../../store/DataContext';
 import { Save, Plus, Trash2, CheckCircle2, GripVertical, X, Edit } from 'lucide-react';
 import { WysiwygEditor } from '../../components/admin/WysiwygEditor';
 
 export default function FaqAdmin() {
-  const { state, updateState } = useData();
+  const { state, updateState, isLoaded } = useData();
   const [faqs, setFaqs] = useState(state.faqItems || []);
   const [saved, setSaved] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [currentFaq, setCurrentFaq] = useState({ id: '', q: '', a: '', category: 'general', order: 0 });
+
+  // Re-sync once the real data has loaded from the server, otherwise
+  // saving would overwrite it with the stale placeholder snapshot.
+  useEffect(() => {
+    if (isLoaded) setFaqs(state.faqItems || []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
   const handleSave = () => {
     updateState({ ...state, faqItems: faqs });

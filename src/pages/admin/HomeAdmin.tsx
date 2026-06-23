@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../../store/DataContext';
 import ImageUploader from '../../components/ImageUploader';
 import { Save, ChevronDown, ChevronRight, Plus, Trash2, GripVertical, FileImage } from 'lucide-react';
@@ -6,10 +6,19 @@ import { useToast } from './AdminLayout';
 import BuilderAdmin from './BuilderAdmin';
 
 export default function HomeAdmin() {
-  const { state, updateState } = useData();
+  const { state, updateState, isLoaded } = useData();
   const [content, setContent] = useState(state.content);
   const [openTab, setOpenTab] = useState('hero');
   const { toast } = useToast();
+
+  // state.content at mount time is still the placeholder initialData —
+  // the real content arrives a moment later from GET /api/data. Re-sync
+  // the local copy once it lands, otherwise saving would overwrite the
+  // server data with this stale snapshot (old photos "coming back").
+  useEffect(() => {
+    if (isLoaded) setContent(state.content);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
   const save = () => {
     updateState({ ...state, content });
