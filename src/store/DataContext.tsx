@@ -7,6 +7,7 @@ interface DataContextType {
   updateState: (newState: AppState) => void;
   resetState: () => void;
   addLead: (lead: Omit<AppState['leads'][0], 'id' | 'date'>) => void;
+  isLoaded: boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -72,7 +73,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DataContext.Provider value={{ state, updateState, resetState, addLead }}>
+    <DataContext.Provider value={{ state, updateState, resetState, addLead, isLoaded: loaded }}>
       {children}
     </DataContext.Provider>
   );

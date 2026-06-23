@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 import { useToast } from './AdminLayout';
 
 export default function BotAdmin() {
-  const { state, updateState } = useData();
+  const { state, updateState, isLoaded } = useData();
   const [prompts, setPrompts] = useState({
     systemPrompt: state.botConfig?.systemPrompt || 'Вы — опытный патентный поверенный РФ. Ваша задача — помогать клиентам по вопросам защиты интеллектуальной собственности...',
     greeting: state.botConfig?.greeting || 'Здравствуйте! Я AI-ассистент патентного поверенного. Чем могу помочь?',
@@ -15,6 +15,20 @@ export default function BotAdmin() {
   const [documents, setDocuments] = useState(state.botConfig?.documents || []);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Re-sync once the real data has loaded from the server, otherwise
+  // saving would overwrite it with the stale placeholder snapshot.
+  useEffect(() => {
+    if (!isLoaded) return;
+    setPrompts({
+      systemPrompt: state.botConfig?.systemPrompt || prompts.systemPrompt,
+      greeting: state.botConfig?.greeting || prompts.greeting,
+    });
+    setKnowledgeBase(state.botConfig?.knowledgeBase || knowledgeBase);
+    setUseGigaChat(state.botConfig?.useGigaChat ?? true);
+    setDocuments(state.botConfig?.documents || []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
   
   // API Keys state
   const [gigachatKey, setGigachatKey] = useState('');
