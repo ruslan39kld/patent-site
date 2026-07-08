@@ -1,0 +1,1 @@
+export default function Test() { return <div className="blur-[120px] backdrop-blur-[100px]">Test</div> }
