@@ -1,6 +1,10 @@
-const PROXY_URL = typeof window !== 'undefined' 
-  ? '' 
+import { searchKnowledgeBase } from '../lib/botSync';
+
+const PROXY_URL = typeof window !== 'undefined'
+  ? ''
   : 'http://localhost:3000';
+
+const FALLBACK_SYSTEM_PROMPT = `Ты — экспертный AI-консультант патентного поверенного. Отвечай кратко и профессионально.`;
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -51,32 +55,29 @@ const fetchBotKnowledge = async (): Promise<BotKnowledge | null> => {
   }
 };
 
-const getSystemPrompt = async (): Promise<string> => {
-  let basePrompt = `Ты — экспертный AI-консультант патентного поверенного. Отвечай кратко и профессионально.`;
+// Injects the relevant slice of the knowledge base into the last user
+// turn (not the system prompt) — the FAQ section is already one of the
+// blocks inside knowledgeBase, so no separate FAQ handling is needed here.
+const buildContextualMessages = (messages: ChatMessage[], knowledgeBase: string): ChatMessage[] => {
+  if (!knowledgeBase || messages.length === 0) return messages;
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.role !== 'user') return messages;
 
+  const context = searchKnowledgeBase(lastMessage.content, knowledgeBase);
+  if (!context) return messages;
+
+  const augmented: ChatMessage = {
+    role: 'user',
+    content: `КОНТЕКСТ С САЙТА:\n${context}\n\nВОПРОС КЛИЕНТА:\n${lastMessage.content}`,
+  };
+  return [...messages.slice(0, -1), augmented];
+};
+
+const buildChatContext = async (messages: ChatMessage[]): Promise<{ systemPrompt: string; messages: ChatMessage[] }> => {
   const knowledge = await fetchBotKnowledge();
-  if (!knowledge) return basePrompt;
-
-  if (knowledge.systemPrompt) {
-    basePrompt = knowledge.systemPrompt;
-  }
-
-  const ragContent: string[] = [];
-
-  if (knowledge.knowledgeBase) {
-    ragContent.push(knowledge.knowledgeBase);
-  }
-
-  if (knowledge.faqItems && knowledge.faqItems.length > 0) {
-    const faqText = knowledge.faqItems.map((f) => `Вопрос: ${f.q}\nОтвет: ${f.a.replace(/<[^>]+>/g, '')}`).join('\n\n');
-    ragContent.push(`--- ЧАСТЫЕ ВОПРОСЫ (FAQ) ---\n${faqText}`);
-  }
-
-  if (ragContent.length > 0) {
-    return `${basePrompt}\n\nБаза знаний (Используй это для ответов):\n${ragContent.join('\n\n')}`;
-  }
-
-  return basePrompt;
+  const systemPrompt = knowledge?.systemPrompt || FALLBACK_SYSTEM_PROMPT;
+  const contextualMessages = buildContextualMessages(messages, knowledge?.knowledgeBase || '');
+  return { systemPrompt, messages: contextualMessages };
 };
 
 const CHAT_REQUEST_TIMEOUT_MS = 20000;
@@ -96,6 +97,8 @@ export const callGigaChat = async (
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (customAuthKey) headers['x-gigachat-auth-key'] = customAuthKey;
 
+  const { systemPrompt, messages: contextualMessages } = await buildChatContext(messages);
+
   let response: Response;
   try {
     response = await fetchWithTimeout(`${PROXY_URL}/api/gigachat/chat`, {
@@ -104,8 +107,8 @@ export const callGigaChat = async (
       body: JSON.stringify({
         model: 'GigaChat',
         messages: [
-          { role: 'system', content: await getSystemPrompt() },
-          ...messages
+          { role: 'system', content: systemPrompt },
+          ...contextualMessages
         ],
         max_tokens: 1500,
         temperature: 0.7,
@@ -130,6 +133,9 @@ export const callClaude = async (
 ): Promise<string> => {
   const key = localStorage.getItem('anthropic_api_key') ||
     (import.meta as any).env?.VITE_ANTHROPIC_KEY || '';
+
+  const { systemPrompt, messages: contextualMessages } = await buildChatContext(messages);
+
   let response: Response;
   try {
     response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
@@ -143,8 +149,8 @@ export const callClaude = async (
       body: JSON.stringify({
         model: 'claude-3-haiku-20240307',
         max_tokens: 1500,
-        system: await getSystemPrompt(),
-        messages,
+        system: systemPrompt,
+        messages: contextualMessages,
       })
     });
   } catch (e) {
