@@ -1,5 +1,6 @@
 import express from 'express';
 import https from 'https';
+import tls from 'tls';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -186,6 +187,34 @@ app.post('/api/gigachat/chat', async (req, res) => {
   } catch (e: unknown) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
+});
+
+// TEMPORARY - remove after diagnosis. Checks raw TLS reachability of the
+// GigaChat OAuth and chat hosts from wherever this server is deployed,
+// to tell a silent network black-hole apart from an auth/API error.
+function checkTlsReachable(host: string, port: number, timeoutMs = 5000): Promise<{ reachable: boolean; ms: number; error: string | null }> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const socket = tls.connect({ host, port, timeout: timeoutMs, rejectUnauthorized: false }, () => {
+      socket.end();
+      resolve({ reachable: true, ms: Date.now() - start, error: null });
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve({ reachable: false, ms: Date.now() - start, error: 'timeout' });
+    });
+    socket.on('error', (err) => {
+      resolve({ reachable: false, ms: Date.now() - start, error: err.message });
+    });
+  });
+}
+
+app.get('/api/gigachat/ping', async (_req, res) => {
+  const [oauth, chat] = await Promise.all([
+    checkTlsReachable('ngw.devices.sberbank.ru', 9443),
+    checkTlsReachable('gigachat.devices.sberbank.ru', 443),
+  ]);
+  res.json({ oauth, chat });
 });
 
 const distPath = path.join(process.cwd(), 'dist');
