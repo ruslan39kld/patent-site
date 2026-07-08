@@ -125,9 +125,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    // Pull the server's copy of botConfig on load, in case this browser's
+    // localStorage is stale or empty (new device, cleared cache, etc.).
+    fetch('/api/data')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data?.botConfig) {
+          setState(prev => ({ ...prev, botConfig: data.botConfig }));
+        }
+      })
+      .catch(err => console.error('Failed to fetch botConfig from server', err));
+  }, []);
+
   const updateState = (newState: AppState) => {
     const syncedState = syncBotKnowledge(newState);
     setState(syncedState);
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botConfig: syncedState.botConfig }),
+    }).catch(err => console.error('Failed to publish botConfig to server', err));
   };
 
   const resetState = () => {
