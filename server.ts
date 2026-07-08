@@ -81,6 +81,17 @@ app.post('/api/data', (req, res) => {
   res.json({ ok: true });
 });
 
+// Narrow, public-safe endpoint for the site's AI bot: only the fields it
+// needs to answer visitors, never leads or other admin data.
+app.get('/api/bot-knowledge', (_req, res) => {
+  const botConfig = getSection('botConfig') as { systemPrompt?: string; knowledgeBase?: string } | null;
+  res.json({
+    systemPrompt: botConfig?.systemPrompt ?? '',
+    knowledgeBase: botConfig?.knowledgeBase ?? '',
+    faqItems: getSection('faqItems') ?? [],
+  });
+});
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, RESOLVED_UPLOADS_DIR),
   filename: (_req, file, cb) => {
