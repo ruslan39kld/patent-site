@@ -24,35 +24,56 @@ const getAppBotConfig = () => {
   return null;
 };
 
-const getSystemPrompt = () => {
-  const config = getAppBotConfig();
-  let basePrompt = `Ты — экспертный AI-консультант патентного поверенного. Отвечай кратко и профессионально.`;
-  
+interface BotKnowledge {
+  systemPrompt: string;
+  knowledgeBase: string;
+  faqItems: { q: string; a: string }[];
+}
+
+let knowledgeCache: { data: BotKnowledge; ts: number } | null = null;
+const KNOWLEDGE_CACHE_TTL = 5 * 60 * 1000;
+
+// Real site visitors have no admin localStorage — the knowledge base must
+// come from the server so it reflects what was actually indexed, not
+// whatever (if anything) happens to be cached in this particular browser.
+const fetchBotKnowledge = async (): Promise<BotKnowledge | null> => {
+  if (knowledgeCache && Date.now() - knowledgeCache.ts < KNOWLEDGE_CACHE_TTL) {
+    return knowledgeCache.data;
+  }
   try {
-    const saved = localStorage.getItem('tarasova_patent_data');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.botConfig?.systemPrompt) {
-        basePrompt = parsed.botConfig.systemPrompt;
-      }
-      
-      let ragContent = [];
-      
-      if (parsed.botConfig?.knowledgeBase) {
-        ragContent.push(parsed.botConfig.knowledgeBase);
-      }
-      
-      if (parsed.faqItems && parsed.faqItems.length > 0) {
-        const faqText = parsed.faqItems.map((f: any) => `Вопрос: ${f.q}\nОтвет: ${f.a.replace(/<[^>]+>/g, '')}`).join('\n\n');
-        ragContent.push(`--- ЧАСТЫЕ ВОПРОСЫ (FAQ) ---\n${faqText}`);
-      }
-      
-      if (ragContent.length > 0) {
-        return `${basePrompt}\n\nБаза знаний (Используй это для ответов):\n${ragContent.join('\n\n')}`;
-      }
-    }
+    const res = await fetch(`${PROXY_URL}/api/bot-knowledge`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    knowledgeCache = { data, ts: Date.now() };
+    return data;
   } catch (e) {
-    //
+    return null;
+  }
+};
+
+const getSystemPrompt = async (): Promise<string> => {
+  let basePrompt = `Ты — экспертный AI-консультант патентного поверенного. Отвечай кратко и профессионально.`;
+
+  const knowledge = await fetchBotKnowledge();
+  if (!knowledge) return basePrompt;
+
+  if (knowledge.systemPrompt) {
+    basePrompt = knowledge.systemPrompt;
+  }
+
+  const ragContent: string[] = [];
+
+  if (knowledge.knowledgeBase) {
+    ragContent.push(knowledge.knowledgeBase);
+  }
+
+  if (knowledge.faqItems && knowledge.faqItems.length > 0) {
+    const faqText = knowledge.faqItems.map((f) => `Вопрос: ${f.q}\nОтвет: ${f.a.replace(/<[^>]+>/g, '')}`).join('\n\n');
+    ragContent.push(`--- ЧАСТЫЕ ВОПРОСЫ (FAQ) ---\n${faqText}`);
+  }
+
+  if (ragContent.length > 0) {
+    return `${basePrompt}\n\nБаза знаний (Используй это для ответов):\n${ragContent.join('\n\n')}`;
   }
 
   return basePrompt;
@@ -71,7 +92,7 @@ export const callGigaChat = async (
     body: JSON.stringify({
       model: 'GigaChat',
       messages: [
-        { role: 'system', content: getSystemPrompt() },
+        { role: 'system', content: await getSystemPrompt() },
         ...messages
       ],
       max_tokens: 1500,
@@ -102,7 +123,7 @@ export const callClaude = async (
     body: JSON.stringify({
       model: 'claude-3-haiku-20240307',
       max_tokens: 1500,
-      system: getSystemPrompt(),
+      system: await getSystemPrompt(),
       messages,
     })
   });
