@@ -3,11 +3,13 @@ import { AppState } from '../types';
 /**
  * Hardcoded System Prompt for the AI Bot
  */
-export const DEFAULT_SYSTEM_PROMPT = `Вы — опытный патентный поверенный РФ (Виктория Тарасова). 
-Ваша задача — помогать клиентам по вопросам защиты интеллектуальной собственности (товарные знаки, патенты, авторское право, ПО, дизайн).
-Ваш тон общения: профессиональный, уверенный, но дружелюбный и доступный.
-Используйте только информацию из базы знаний. Если информации нет, предлагайте оставить заявку или связаться напрямую.
-Не выдумывайте цены или условия, если их нет в базе.`;
+export const DEFAULT_SYSTEM_PROMPT = `Ты — AI-консультант патентного поверенного Виктории Тарасовой. Отвечай кратко, по делу и дружелюбно, без канцелярита.
+
+Пользовательские сообщения могут содержать раздел «КОНТЕКСТ С САЙТА» — используй его, если он есть и релевантен вопросу. Не выдумывай цены, сроки или условия, которых там нет: если информации не хватает, честно скажи об этом и предложи оставить заявку или связаться напрямую.
+
+Если вопрос не связан с товарными знаками, патентами, авторским правом или защитой интеллектуальной собственности — вежливо предложи задать вопрос по теме или записаться на консультацию к Виктории.
+
+Язык ответа: русский. Не более 600 символов на ответ.`;
 
 /**
  * Parser that collects all text content from the application state 
@@ -148,6 +150,65 @@ export function parseSiteContent(state: AppState): string {
   console.log("-------------------------------------");
 
   return content;
+}
+
+// Exact header strings written by parseSiteContent's addBlock() calls above —
+// used to split the flat knowledgeBase string back into per-section blocks.
+const SECTION_HEADERS = [
+  'О СЕРВИСЕ:',
+  'УСЛУГИ:',
+  'ПРАЙС-ЛИСТ:',
+  'КЕЙСЫ И ОПЫТ:',
+  'СТАТЬИ И ПОЛЕЗНЫЕ МАТЕРИАЛЫ:',
+  'ЧАСТО ЗАДАВАЕМЫЕ ВОПРОСЫ:',
+  'ОТЗЫВЫ КЛИЕНТОВ:',
+  'ДОПОЛНИТЕЛЬНЫЯ ИНФОРМАЦИЯ ИЗ КОНСТРУКТОРА:',
+  'КОНТАКТЫ:',
+];
+
+function splitIntoBlocks(knowledgeBase: string): string[] {
+  const escaped = SECTION_HEADERS.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = new RegExp(`(?=^(?:${escaped.join('|')})$)`, 'm');
+  return knowledgeBase.split(pattern).map(b => b.trim()).filter(Boolean);
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 3);
+}
+
+/**
+ * Picks the 2-4 knowledgeBase blocks most relevant to a user's question
+ * (plain keyword matching, no embeddings) instead of stuffing the whole
+ * ~40KB site index into every request.
+ */
+export function searchKnowledgeBase(query: string, knowledgeBase: string, maxBlocks = 4, maxLength = 4000): string {
+  if (!knowledgeBase) return '';
+
+  const blocks = splitIntoBlocks(knowledgeBase);
+  if (blocks.length === 0) return knowledgeBase.slice(0, maxLength);
+
+  const queryWords = tokenize(query);
+  const scored = blocks.map(block => {
+    const lowerBlock = block.toLowerCase();
+    const score = queryWords.reduce((sum, word) => sum + (lowerBlock.split(word).length - 1), 0);
+    return { block, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  const relevant = scored.filter(s => s.score > 0).slice(0, maxBlocks);
+
+  // No keyword matches — fall back to intro + contacts rather than an
+  // empty context, so the bot can still answer generic/greeting messages.
+  const selected = relevant.length > 0
+    ? relevant.map(s => s.block)
+    : blocks.filter(b => b.startsWith('О СЕРВИСЕ:') || b.startsWith('КОНТАКТЫ:'));
+
+  const result = selected.join('\n\n');
+  return result.length > maxLength ? result.slice(0, maxLength) : result;
 }
 
 /**

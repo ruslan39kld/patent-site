@@ -1,5 +1,6 @@
 import express from 'express';
 import https from 'https';
+import tls from 'tls';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -81,6 +82,17 @@ app.post('/api/data', (req, res) => {
   res.json({ ok: true });
 });
 
+// Narrow, public-safe endpoint for the site's AI bot: only the fields it
+// needs to answer visitors, never leads or other admin data.
+app.get('/api/bot-knowledge', (_req, res) => {
+  const botConfig = getSection('botConfig') as { systemPrompt?: string; knowledgeBase?: string } | null;
+  res.json({
+    systemPrompt: botConfig?.systemPrompt ?? '',
+    knowledgeBase: botConfig?.knowledgeBase ?? '',
+    faqItems: getSection('faqItems') ?? [],
+  });
+});
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, RESOLVED_UPLOADS_DIR),
   filename: (_req, file, cb) => {
@@ -125,6 +137,8 @@ async function getAccessToken(authKey: string): Promise<string> {
   return access_token;
 }
 
+const HTTPS_POST_TIMEOUT_MS = 15000;
+
 function httpsPost(url: string, headers: Record<string, string>, body: string): Promise<{ status: number; data: unknown }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -139,6 +153,9 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
         });
       }
     );
+    req.setTimeout(HTTPS_POST_TIMEOUT_MS, () => {
+      req.destroy(new Error(`GigaChat не отвечает (таймаут ${HTTPS_POST_TIMEOUT_MS / 1000}с)`));
+    });
     req.on('error', reject);
     req.write(body);
     req.end();
@@ -170,6 +187,34 @@ app.post('/api/gigachat/chat', async (req, res) => {
   } catch (e: unknown) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
+});
+
+// TEMPORARY - remove after diagnosis. Checks raw TLS reachability of the
+// GigaChat OAuth and chat hosts from wherever this server is deployed,
+// to tell a silent network black-hole apart from an auth/API error.
+function checkTlsReachable(host: string, port: number, timeoutMs = 5000): Promise<{ reachable: boolean; ms: number; error: string | null }> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const socket = tls.connect({ host, port, timeout: timeoutMs, rejectUnauthorized: false }, () => {
+      socket.end();
+      resolve({ reachable: true, ms: Date.now() - start, error: null });
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve({ reachable: false, ms: Date.now() - start, error: 'timeout' });
+    });
+    socket.on('error', (err) => {
+      resolve({ reachable: false, ms: Date.now() - start, error: err.message });
+    });
+  });
+}
+
+app.get('/api/gigachat/ping', async (_req, res) => {
+  const [oauth, chat] = await Promise.all([
+    checkTlsReachable('ngw.devices.sberbank.ru', 9443),
+    checkTlsReachable('gigachat.devices.sberbank.ru', 443),
+  ]);
+  res.json({ oauth, chat });
 });
 
 const distPath = path.join(process.cwd(), 'dist');
