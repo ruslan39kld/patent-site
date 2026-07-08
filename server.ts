@@ -136,6 +136,8 @@ async function getAccessToken(authKey: string): Promise<string> {
   return access_token;
 }
 
+const HTTPS_POST_TIMEOUT_MS = 15000;
+
 function httpsPost(url: string, headers: Record<string, string>, body: string): Promise<{ status: number; data: unknown }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -150,6 +152,9 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
         });
       }
     );
+    req.setTimeout(HTTPS_POST_TIMEOUT_MS, () => {
+      req.destroy(new Error(`GigaChat не отвечает (таймаут ${HTTPS_POST_TIMEOUT_MS / 1000}с)`));
+    });
     req.on('error', reject);
     req.write(body);
     req.end();

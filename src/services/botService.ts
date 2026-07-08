@@ -79,26 +79,44 @@ const getSystemPrompt = async (): Promise<string> => {
   return basePrompt;
 };
 
+const CHAT_REQUEST_TIMEOUT_MS = 20000;
+
+// Without an explicit deadline, a stalled connection to either provider
+// leaves the caller (and thus the "печатает..." UI) hanging forever.
+const fetchWithTimeout = (input: RequestInfo, init: RequestInit = {}, timeoutMs = CHAT_REQUEST_TIMEOUT_MS): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 export const callGigaChat = async (
   messages: ChatMessage[]
 ): Promise<string> => {
   const customAuthKey = localStorage.getItem('gigachat_auth_key') || '';
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (customAuthKey) headers['x-gigachat-auth-key'] = customAuthKey;
-  
-  const response = await fetch(`${PROXY_URL}/api/gigachat/chat`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model: 'GigaChat',
-      messages: [
-        { role: 'system', content: await getSystemPrompt() },
-        ...messages
-      ],
-      max_tokens: 1500,
-      temperature: 0.7,
-    })
-  });
+
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${PROXY_URL}/api/gigachat/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'GigaChat',
+        messages: [
+          { role: 'system', content: await getSystemPrompt() },
+          ...messages
+        ],
+        max_tokens: 1500,
+        temperature: 0.7,
+      })
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('GigaChat не отвечает (таймаут)');
+    }
+    throw e;
+  }
   if (!response.ok) {
     const err = await response.json();
     throw new Error(err.error || `HTTP ${response.status}`);
@@ -110,23 +128,31 @@ export const callGigaChat = async (
 export const callClaude = async (
   messages: ChatMessage[]
 ): Promise<string> => {
-  const key = localStorage.getItem('anthropic_api_key') || 
+  const key = localStorage.getItem('anthropic_api_key') ||
     (import.meta as any).env?.VITE_ANTHROPIC_KEY || '';
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 1500,
-      system: await getSystemPrompt(),
-      messages,
-    })
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 1500,
+        system: await getSystemPrompt(),
+        messages,
+      })
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('Claude не отвечает (таймаут)');
+    }
+    throw e;
+  }
   if (!response.ok) throw new Error(`Claude HTTP ${response.status}`);
   const data = await response.json();
   return data.content[0].text;
