@@ -164,10 +164,38 @@ export const callClaude = async (
   return data.content[0].text;
 };
 
+// GigaChat sometimes answers these with Sberbank's canned platform reply
+// (video/photo/podcast capabilities) instead of running the model at all —
+// confirmed via logs showing prompt_tokens=1, completion_tokens=0, meaning
+// the system prompt is bypassed entirely. Not fixable via prompt text, so
+// we intercept on the client before the request is ever sent.
+export const META_QUESTION_PATTERNS = [
+  /что ты (умеешь|можешь|такое)/i,
+  /кто ты( такой| такая)?/i,
+  /расскажи о себе/i,
+  /как тебя зовут/i,
+  /ты (бот|нейросеть|ии|искусственный интеллект)/i,
+];
+
+export const META_QUESTION_RESPONSE =
+  'Я консультирую по товарным знакам, патентам, промышленным образцам ' +
+  'и защите авторских прав — от регистрации до споров о нарушении ' +
+  'прав. Что вас интересует?';
+
+export function matchesMetaQuestion(text: string): boolean {
+  return META_QUESTION_PATTERNS.some((p) => p.test(text.trim()));
+}
+
 export const sendBotMessage = async (
   messages: ChatMessage[],
   onProvider?: (p: Provider) => void
 ): Promise<string> => {
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage?.role === 'user' && matchesMetaQuestion(lastMessage.content)) {
+    onProvider?.('gigachat');
+    return META_QUESTION_RESPONSE;
+  }
+
   const config = getAppBotConfig();
   const preferGigaChat = config?.useGigaChat ?? true;
 
