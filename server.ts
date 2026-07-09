@@ -142,21 +142,35 @@ const HTTPS_POST_TIMEOUT_MS = 15000;
 function httpsPost(url: string, headers: Record<string, string>, body: string): Promise<{ status: number; data: unknown }> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
+    // req.setTimeout() only bounds idle time on an already-connected socket —
+    // verified empirically that it does NOT bound a hung TCP connect() (a
+    // real unreachable host took 2m14s despite a 15s setTimeout). An
+    // AbortController timer, started at request creation, bounds the whole
+    // operation regardless of connection phase — same pattern as the
+    // client-side fetchWithTimeout() in botService.ts.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HTTPS_POST_TIMEOUT_MS);
+
     const req = https.request(
-      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }, agent },
+      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }, agent, signal: controller.signal },
       (res) => {
         let raw = '';
         res.on('data', (chunk) => (raw += chunk));
         res.on('end', () => {
+          clearTimeout(timer);
           try { resolve({ status: res.statusCode ?? 0, data: JSON.parse(raw) }); }
           catch { resolve({ status: res.statusCode ?? 0, data: raw }); }
         });
       }
     );
-    req.setTimeout(HTTPS_POST_TIMEOUT_MS, () => {
-      req.destroy(new Error(`GigaChat не отвечает (таймаут ${HTTPS_POST_TIMEOUT_MS / 1000}с)`));
+    req.on('error', (err) => {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        reject(new Error(`GigaChat не отвечает (таймаут ${HTTPS_POST_TIMEOUT_MS / 1000}с)`));
+      } else {
+        reject(err);
+      }
     });
-    req.on('error', reject);
     req.write(body);
     req.end();
   });
