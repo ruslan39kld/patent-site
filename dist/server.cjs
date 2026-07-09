@@ -1829,12 +1829,15 @@ var HTTPS_POST_TIMEOUT_MS = 15e3;
 function httpsPost(url, headers, body) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HTTPS_POST_TIMEOUT_MS);
     const req = import_https.default.request(
-      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: "POST", headers: { ...headers, "Content-Length": Buffer.byteLength(body) }, agent },
+      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: "POST", headers: { ...headers, "Content-Length": Buffer.byteLength(body) }, agent, signal: controller.signal },
       (res) => {
         let raw = "";
         res.on("data", (chunk) => raw += chunk);
         res.on("end", () => {
+          clearTimeout(timer);
           try {
             resolve({ status: res.statusCode ?? 0, data: JSON.parse(raw) });
           } catch {
@@ -1843,10 +1846,14 @@ function httpsPost(url, headers, body) {
         });
       }
     );
-    req.setTimeout(HTTPS_POST_TIMEOUT_MS, () => {
-      req.destroy(new Error(`GigaChat \u043D\u0435 \u043E\u0442\u0432\u0435\u0447\u0430\u0435\u0442 (\u0442\u0430\u0439\u043C\u0430\u0443\u0442 ${HTTPS_POST_TIMEOUT_MS / 1e3}\u0441)`));
+    req.on("error", (err) => {
+      clearTimeout(timer);
+      if (err.name === "AbortError") {
+        reject(new Error(`GigaChat \u043D\u0435 \u043E\u0442\u0432\u0435\u0447\u0430\u0435\u0442 (\u0442\u0430\u0439\u043C\u0430\u0443\u0442 ${HTTPS_POST_TIMEOUT_MS / 1e3}\u0441)`));
+      } else {
+        reject(err);
+      }
     });
-    req.on("error", reject);
     req.write(body);
     req.end();
   });
@@ -1879,7 +1886,7 @@ app.post("/api/gigachat/chat", async (req, res) => {
 function checkTlsReachable(host, port, timeoutMs = 5e3) {
   return new Promise((resolve) => {
     const start = Date.now();
-    const socket = import_tls.default.connect({ host, port, timeout: timeoutMs, rejectUnauthorized: false }, () => {
+    const socket = import_tls.default.connect({ host, port, servername: host, timeout: timeoutMs, rejectUnauthorized: false }, () => {
       socket.end();
       resolve({ reachable: true, ms: Date.now() - start, error: null });
     });
