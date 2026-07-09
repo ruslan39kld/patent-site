@@ -10,6 +10,8 @@ export default function BotAdmin() {
   const [testMessage, setTestMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant', text: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [promptDraft, setPromptDraft] = useState(state.botConfig?.systemPrompt || '');
+  const [promptDirty, setPromptDirty] = useState(false);
   const { toast } = useToast();
 
   const handleManualSync = () => {
@@ -17,6 +19,15 @@ export default function BotAdmin() {
     updateState(newState);
     const charCount = newState.botConfig?.knowledgeBase?.length || 0;
     toast(`База знаний успешно обновлена: ${charCount} символов проиндексировано.`);
+  };
+
+  const handleSavePrompt = () => {
+    updateState({
+      ...state,
+      botConfig: { ...state.botConfig!, systemPrompt: promptDraft }
+    });
+    setPromptDirty(false);
+    toast('Системный промпт сохранён.');
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -94,6 +105,29 @@ export default function BotAdmin() {
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Переиндексировать сайт
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] p-6">
+        <h2 className="text-lg font-bold text-[#0F172A]">Системный промпт</h2>
+        <p className="text-xs text-[#64748B] mb-4">Определяет тон и стиль ответов бота. Не затирается при переиндексации сайта.</p>
+        <textarea
+          rows={10}
+          value={promptDraft}
+          onChange={(e) => {
+            setPromptDraft(e.target.value);
+            setPromptDirty(true);
+          }}
+          className="w-full border border-[#E2E8F0] rounded-lg px-4 py-3 focus:ring-1 focus:ring-[#1B3F7A] focus:border-[#1B3F7A] outline-none transition-all font-mono text-sm"
+        />
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={handleSavePrompt}
+            disabled={!promptDirty}
+            className="bg-[#1B3F7A] hover:bg-[#1B3F7A]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            Сохранить промпт
           </button>
         </div>
       </div>
