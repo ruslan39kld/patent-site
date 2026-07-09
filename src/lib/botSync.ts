@@ -11,6 +11,7 @@ export const DEFAULT_SYSTEM_PROMPT = `РОЛЬ:
 
 КОНТЕКСТ С САЙТА:
 Пользовательские сообщения могут содержать блок «КОНТЕКСТ С САЙТА» — используй его как основной источник фактов (цены, сроки, услуги). Если контекста нет или он не покрывает вопрос — отвечай на основе общих профессиональных знаний, но не выдумывай конкретику именно этого бюро. В этом случае предложи оставить контакт для консультации с Викторией.
+Для вопросов о ценах/услугах: отвечай кратко (2-4 предложения по ключевым фактам из контекста), затем добавь markdown-ссылку на точный раздел сайта из контекста в формате [Открыть раздел «Название»](URL). Ссылки в контексте помечены как «[Ссылка на раздел: URL]». Никогда не выдумывай URL, если его нет в контексте.
 
 ГРАНИЦЫ:
 Не давай юридических гарантий ("точно одобрят"), используй "как правило", "зависит от ситуации". Не упоминай других поверенных. При сложных вопросах о цене/сроках конкретного случая — предлагай оставить заявку. Если вопрос не по теме патентов/брендов/авторских прав — вежливо верни к теме.
@@ -66,6 +67,7 @@ export function parseSiteContent(state: AppState): string {
       if (s.includes) servicesContent += `Что включено: ${s.includes.join(', ')}\n`;
       servicesContent += `\n`;
     });
+    servicesContent += `[Ссылка на раздел: /pricing]\n\n`;
     addBlock("Услуги", servicesContent);
   }
 
@@ -75,7 +77,7 @@ export function parseSiteContent(state: AppState): string {
     state.prices.forEach(p => {
       pricesContent += `- ${p.name}: ${p.price} (Госпошлина: ${p.tax})\n`;
     });
-    pricesContent += `\n`;
+    pricesContent += `\n[Ссылка на раздел: /pricing]\n\n`;
     addBlock("Стоимость", pricesContent);
   }
 
@@ -88,6 +90,7 @@ export function parseSiteContent(state: AppState): string {
       casesContent += `Решение: ${c.solution}\n`;
       casesContent += `Результат: ${c.result}\n\n`;
     });
+    casesContent += `[Ссылка на раздел: /cases]\n\n`;
     addBlock("Кейсы", casesContent);
   }
 
@@ -99,6 +102,7 @@ export function parseSiteContent(state: AppState): string {
       blogContent += `Кратко: ${p.excerpt}\n`;
       blogContent += `Контент: ${p.content}\n\n`;
     });
+    blogContent += `[Ссылка на раздел: /blog]\n\n`;
     addBlock("Статьи", blogContent);
   }
 
@@ -109,6 +113,7 @@ export function parseSiteContent(state: AppState): string {
       faqContent += `Вопрос: ${f.q}\n`;
       faqContent += `Ответ: ${f.a}\n\n`;
     });
+    faqContent += `[Ссылка на раздел: /faq]\n\n`;
     addBlock("FAQ", faqContent);
   }
 
@@ -122,6 +127,7 @@ export function parseSiteContent(state: AppState): string {
         reviewsContent += `Текст: ${r.text}\n\n`;
       }
     });
+    reviewsContent += `[Ссылка на раздел: /reviews]\n\n`;
     addBlock("Отзывы", reviewsContent);
   }
 
@@ -186,6 +192,25 @@ function tokenize(text: string): string[] {
     .filter(w => w.length >= 3);
 }
 
+// Price/services questions are the highest-value case for a patent
+// attorney's bot, but the price list itself is just names and numbers —
+// it rarely contains words like "цена"/"стоит", so keyword scoring alone
+// can't be trusted to surface it. Force it in whenever the question looks
+// like a price/cost question, regardless of computed score.
+const PRICE_INTENT_PATTERNS = [
+  /сколько стоит/i,
+  /как(ая|ой)?\s*цена/i,
+  /стоимост/i,
+  /прайс/i,
+  /тариф/i,
+  /почём|почем/i,
+  /расценк/i,
+];
+
+function matchesPriceIntent(text: string): boolean {
+  return PRICE_INTENT_PATTERNS.some((p) => p.test(text));
+}
+
 /**
  * Picks the 2-4 knowledgeBase blocks most relevant to a user's question
  * (plain keyword matching, no embeddings) instead of stuffing the whole
@@ -200,7 +225,11 @@ export function searchKnowledgeBase(query: string, knowledgeBase: string, maxBlo
   const queryWords = tokenize(query);
   const scored = blocks.map(block => {
     const lowerBlock = block.toLowerCase();
-    const score = queryWords.reduce((sum, word) => sum + (lowerBlock.split(word).length - 1), 0);
+    const rawScore = queryWords.reduce((sum, word) => sum + (lowerBlock.split(word).length - 1), 0);
+    // Normalize by block length (matches per 1000 chars) so the largest
+    // block (usually the blog articles) doesn't win purely by having more
+    // raw text to match against, regardless of actual relevance.
+    const score = rawScore / (block.length / 1000);
     return { block, score };
   });
   scored.sort((a, b) => b.score - a.score);
@@ -209,12 +238,30 @@ export function searchKnowledgeBase(query: string, knowledgeBase: string, maxBlo
 
   // No keyword matches — fall back to intro + contacts rather than an
   // empty context, so the bot can still answer generic/greeting messages.
-  const selected = relevant.length > 0
+  let selected = relevant.length > 0
     ? relevant.map(s => s.block)
     : blocks.filter(b => b.startsWith('О СЕРВИСЕ:') || b.startsWith('КОНТАКТЫ:'));
 
+  const priceIntent = matchesPriceIntent(query);
+  if (priceIntent) {
+    // ПРАЙС-ЛИСТ first: it's the actual numbers, and on its own is already
+    // close to (or over) the default budget, so it must not get pushed out
+    // by a bigger block landing earlier in the join.
+    const mustHave = [
+      ...blocks.filter(b => b.startsWith('ПРАЙС-ЛИСТ:')),
+      ...blocks.filter(b => b.startsWith('УСЛУГИ:')),
+    ];
+    const rest = selected.filter(b => !mustHave.includes(b));
+    selected = [...mustHave, ...rest].slice(0, maxBlocks);
+  }
+
+  // Price questions get a larger budget: ПРАЙС-ЛИСТ + УСЛУГИ together
+  // routinely exceed the default 4000 chars on their own, and truncating
+  // away the prices we just forced in would defeat the point.
+  const effectiveMaxLength = priceIntent ? Math.max(maxLength, 9000) : maxLength;
+
   const result = selected.join('\n\n');
-  return result.length > maxLength ? result.slice(0, maxLength) : result;
+  return result.length > effectiveMaxLength ? result.slice(0, effectiveMaxLength) : result;
 }
 
 /**
