@@ -126,11 +126,27 @@ async function getAccessToken(authKey: string): Promise<string> {
   if (cachedToken.token && Date.now() < cachedToken.expiresAt && cachedToken.authKey === authKey) {
     return cachedToken.token;
   }
+  const rqUID = crypto.randomUUID();
+  // TEMPORARY DEBUG LOGGING - remove after diagnosis. Never logs authKey itself,
+  // only shape/length so we can spot a stray "Basic " prefix or whitespace
+  // baked into the env var without exposing the secret.
+  console.log('[GigaChat DEBUG] getAccessToken: requesting new token', {
+    rqUID,
+    authKeyLength: authKey.length,
+    authKeyHasWhitespace: authKey.trim() !== authKey,
+    authKeyStartsWithBasic: authKey.toLowerCase().startsWith('basic'),
+    authKeyPrefix: authKey.slice(0, 4),
+    authKeySuffix: authKey.slice(-4),
+  });
   const result = await httpsPost(
     'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
-    { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', RqUID: crypto.randomUUID(), Authorization: `Basic ${authKey}` },
+    { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', RqUID: rqUID, Authorization: `Basic ${authKey}` },
     'scope=GIGACHAT_API_PERS'
   );
+  console.log('[GigaChat DEBUG] getAccessToken: oauth response', {
+    status: result.status,
+    data: result.data,
+  });
   if (result.status < 200 || result.status >= 300) throw new Error(`GigaChat OAuth error: ${result.status}`);
   const { access_token } = result.data as { access_token: string };
   cachedToken = { token: access_token, expiresAt: Date.now() + 25 * 60 * 1000, authKey };
@@ -151,13 +167,32 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), HTTPS_POST_TIMEOUT_MS);
 
+    const requestHeaders = { ...headers, 'Content-Length': Buffer.byteLength(body) };
+    // TEMPORARY DEBUG LOGGING - remove after diagnosis. Logs header names and
+    // the request line only; Authorization value is redacted so the secret
+    // never hits the logs.
+    console.log('[GigaChat DEBUG] httpsPost: sending request', {
+      method: 'POST',
+      hostname: u.hostname,
+      port: u.port || 443,
+      path: u.pathname + u.search,
+      headerNames: Object.keys(requestHeaders),
+      hasAuthorizationHeader: 'Authorization' in requestHeaders,
+    });
+
     const req = https.request(
-      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) }, agent, signal: controller.signal },
+      { hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, method: 'POST', headers: requestHeaders, agent, signal: controller.signal },
       (res) => {
         let raw = '';
         res.on('data', (chunk) => (raw += chunk));
         res.on('end', () => {
           clearTimeout(timer);
+          console.log('[GigaChat DEBUG] httpsPost: response received', {
+            hostname: u.hostname,
+            path: u.pathname + u.search,
+            status: res.statusCode ?? 0,
+            bodyText: raw,
+          });
           try { resolve({ status: res.statusCode ?? 0, data: JSON.parse(raw) }); }
           catch { resolve({ status: res.statusCode ?? 0, data: raw }); }
         });
@@ -165,6 +200,12 @@ function httpsPost(url: string, headers: Record<string, string>, body: string): 
     );
     req.on('error', (err) => {
       clearTimeout(timer);
+      console.log('[GigaChat DEBUG] httpsPost: request error', {
+        hostname: u.hostname,
+        path: u.pathname + u.search,
+        errorName: err.name,
+        errorMessage: err.message,
+      });
       if (err.name === 'AbortError') {
         reject(new Error(`GigaChat не отвечает (таймаут ${HTTPS_POST_TIMEOUT_MS / 1000}с)`));
       } else {
