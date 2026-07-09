@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { sendBotMessage, ChatMessage, Provider } from '../services/botService';
@@ -163,17 +164,12 @@ export default function AIBot() {
                       
                       <div className="flex flex-col gap-1">
                         <div className={cn(
-                          "p-5 text-[16px] leading-relaxed relative",
-                          msg.role === 'user' 
-                            ? "bg-[#1B3F7A] text-white rounded-[24px] rounded-tr-sm shadow-[0_4px_20px_rgba(27,63,122,0.15)]" 
+                          "p-5 text-[16px] leading-relaxed relative [&_p]:m-0 [&_p+p]:mt-3 [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:list-disc [&_ol]:list-decimal [&_strong]:font-bold",
+                          msg.role === 'user'
+                            ? "bg-[#1B3F7A] text-white rounded-[24px] rounded-tr-sm shadow-[0_4px_20px_rgba(27,63,122,0.15)]"
                             : "bg-white text-[#1F2937] rounded-[24px] rounded-tl-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.03)]"
                         )}>
-                          {msg.content.split('\n').map((line, idx) => (
-                            <span key={idx}>
-                              {line}
-                              {idx !== msg.content.split('\n').length - 1 && <br />}
-                            </span>
-                          ))}
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                         <span className={cn(
                           "text-[12px] font-bold tracking-wider text-gray-400 px-2 mt-1",

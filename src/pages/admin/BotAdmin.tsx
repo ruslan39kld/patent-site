@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useData } from '../../store/DataContext';
 import { Bot, RefreshCw, Send, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from './AdminLayout';
 import { syncBotKnowledge } from '../../lib/botSync';
+import { matchesMetaQuestion, META_QUESTION_RESPONSE } from '../../services/botService';
 
 export default function BotAdmin() {
   const { state, updateState } = useData();
@@ -37,6 +39,12 @@ export default function BotAdmin() {
     const userText = testMessage.trim();
     setTestMessage('');
     setChatHistory(prev => [...prev, { role: 'user', text: userText }]);
+
+    if (matchesMetaQuestion(userText)) {
+      setChatHistory(prev => [...prev, { role: 'assistant', text: META_QUESTION_RESPONSE }]);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -191,12 +199,12 @@ export default function BotAdmin() {
                     msg.role === 'user' ? "justify-end" : "justify-start"
                   )}>
                     <div className={cn(
-                      "max-w-[80%] p-3 rounded-xl text-sm shadow-sm",
-                      msg.role === 'user' 
-                        ? "bg-[#1B3F7A] text-white rounded-br-none" 
+                      "max-w-[80%] p-3 rounded-xl text-sm shadow-sm [&_p]:m-0 [&_p+p]:mt-2 [&_ul]:pl-4 [&_ol]:pl-4 [&_ul]:list-disc [&_ol]:list-decimal [&_strong]:font-bold",
+                      msg.role === 'user'
+                        ? "bg-[#1B3F7A] text-white rounded-br-none"
                         : "bg-white text-[#0F172A] border border-[#E2E8F0] rounded-bl-none"
                     )}>
-                      {msg.text}
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
                     </div>
                   </div>
                 ))
