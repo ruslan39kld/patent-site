@@ -9,10 +9,13 @@ interface CalcOption {
 }
 
 const objectTypes: CalcOption[] = [
-  { id: 'tm', label: 'Товарный знак', price: 15000 },
-  { id: 'patent', label: 'Изобретение', price: 30000 },
-  { id: 'design', label: 'Промышленный образец', price: 15000 },
-  { id: 'software', label: 'Программа ЭВМ', price: 30000 },
+  { id: 'tm', label: 'Товарный знак', price: 17000 },
+  { id: 'patent', label: 'Изобретение', price: 50000 },
+  { id: 'design', label: 'Промышленный образец', price: 25000 },
+  // TEMPORARY: there's no matching line item in prices (initialData.ts) for
+  // ПО registration — this is the coarse `services` price, not the price
+  // list. Update or remove once a real prices entry exists for this.
+  { id: 'software', label: 'Программа ЭВМ', price: 20000 },
 ];
 
 const regions: CalcOption[] = [
@@ -37,11 +40,14 @@ export default function PricingCalculator() {
     }
 
     // add classes price if it's trademark
-    if (selectedType.id === 'tm' && classesCount > 1) {
+    if (selectedType.id === 'tm') {
       if (selectedRegion.id === 'intl') {
-        sum += (classesCount - 1) * 3500;
+        // Madrid system price (35 000 ₽ + 3 500 ₽/доп. кл.) doesn't state
+        // how many classes are included in the base, unlike the RU filing.
+        if (classesCount > 1) sum += (classesCount - 1) * 3500;
       } else {
-        sum += (classesCount - 1) * 1000; 
+        // RU filing base (17 000 ₽) covers up to 5 classes МКТУ.
+        if (classesCount > 5) sum += (classesCount - 5) * 1000;
       }
     }
 
