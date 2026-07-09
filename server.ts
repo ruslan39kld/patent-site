@@ -195,7 +195,7 @@ app.post('/api/gigachat/chat', async (req, res) => {
 function checkTlsReachable(host: string, port: number, timeoutMs = 5000): Promise<{ reachable: boolean; ms: number; error: string | null }> {
   return new Promise((resolve) => {
     const start = Date.now();
-    const socket = tls.connect({ host, port, timeout: timeoutMs, rejectUnauthorized: false }, () => {
+    const socket = tls.connect({ host, port, servername: host, timeout: timeoutMs, rejectUnauthorized: false }, () => {
       socket.end();
       resolve({ reachable: true, ms: Date.now() - start, error: null });
     });
