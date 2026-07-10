@@ -186,6 +186,31 @@ export function matchesMetaQuestion(text: string): boolean {
   return META_QUESTION_PATTERNS.some((p) => p.test(text.trim()));
 }
 
+// GigaChat keeps citing stale/inconsistent numbers for pricing questions
+// (old services-block figures, mismatched formats) even with the price
+// list prioritized in context. Decision: don't let the model generate
+// pricing answers at all — intercept deterministically, same as meta
+// questions, and point to the dedicated pricing page/calculator instead.
+export const PRICE_QUESTION_PATTERNS = [
+  /сколько стоит/i,
+  /какая цена/i,
+  /стоимость/i,
+  /тариф/i,
+  /почём/i,
+  /расценки/i,
+  /прайс/i,
+];
+
+export const PRICE_QUESTION_RESPONSE =
+  'Точные цены по каждой услуге — в разделе «Стоимость»: /pricing. ' +
+  'Там же есть калькулятор, который сразу считает ориентировочную ' +
+  'сумму под вашу задачу. Если нужна точная цена под конкретную ' +
+  'ситуацию — оставьте контакт, и Виктория посчитает индивидуально.';
+
+export function matchesPriceQuestion(text: string): boolean {
+  return PRICE_QUESTION_PATTERNS.some((p) => p.test(text.trim()));
+}
+
 export const sendBotMessage = async (
   messages: ChatMessage[],
   onProvider?: (p: Provider) => void
@@ -194,6 +219,10 @@ export const sendBotMessage = async (
   if (lastMessage?.role === 'user' && matchesMetaQuestion(lastMessage.content)) {
     onProvider?.('gigachat');
     return META_QUESTION_RESPONSE;
+  }
+  if (lastMessage?.role === 'user' && matchesPriceQuestion(lastMessage.content)) {
+    onProvider?.('gigachat');
+    return PRICE_QUESTION_RESPONSE;
   }
 
   const config = getAppBotConfig();
