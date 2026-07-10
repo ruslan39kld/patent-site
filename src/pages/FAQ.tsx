@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { ArrowLeft, ArrowRight, Bot, Send, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { sendBotMessage, ChatMessage, Provider } from '../services/botService';
@@ -317,17 +318,12 @@ export default function FAQ() {
                       
                       <div className="flex flex-col gap-1">
                         <div className={cn(
-                          "p-4 text-[15px] leading-relaxed shadow-sm relative",
-                          msg.role === 'user' 
-                            ? "bg-[#3B82F6] text-white rounded-[20px] rounded-tr-sm shadow-[0_4px_15px_rgba(59,130,246,0.2)]" 
+                          "p-4 text-[15px] leading-relaxed shadow-sm relative [&_p]:m-0 [&_p+p]:mt-3 [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:list-disc [&_ol]:list-decimal [&_strong]:font-bold",
+                          msg.role === 'user'
+                            ? "bg-[#3B82F6] text-white rounded-[20px] rounded-tr-sm shadow-[0_4px_15px_rgba(59,130,246,0.2)]"
                             : "bg-white text-[#1F2937] rounded-[20px] rounded-tl-sm border border-[#3B82F6]/10 shadow-[0_4px_15px_rgba(0,0,0,0.02)]"
                         )}>
-                          {msg.content.split('\n').map((line, idx) => (
-                            <span key={idx}>
-                              {line}
-                              {idx !== msg.content.split('\n').length - 1 && <br />}
-                            </span>
-                          ))}
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                         <span className={cn(
                           "text-[11px] text-gray-400 font-medium px-1",

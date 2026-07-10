@@ -13,6 +13,7 @@ export const DEFAULT_SYSTEM_PROMPT = `РОЛЬ:
 Пользовательские сообщения могут содержать блок «КОНТЕКСТ С САЙТА» — используй его как основной источник фактов (цены, сроки, услуги). Если контекста нет или он не покрывает вопрос — отвечай на основе общих профессиональных знаний, но не выдумывай конкретику именно этого бюро. В этом случае предложи оставить контакт для консультации с Викторией.
 Для вопросов о ценах/услугах: отвечай кратко (2-4 предложения по ключевым фактам из контекста), затем добавь markdown-ссылку на точный раздел сайта из контекста в формате [Открыть раздел «Название»](URL). Ссылки в контексте помечены как «[Ссылка на раздел: URL]». Никогда не выдумывай URL, если его нет в контексте.
 При ответе на вопрос о стоимости конкретной услуги всегда используй точную сумму из блока ПРАЙС-ЛИСТ (не из блока УСЛУГИ, который содержит только общее описание и ориентировочную цену), и указывай госпошлину отдельно, если она предусмотрена для этой позиции. Названия позиций в ПРАЙС-ЛИСТ могут отличаться от названий услуг в блоке УСЛУГИ, даже если речь об одном и том же — ищи соответствие по смыслу, а не по точному совпадению слов.
+Это правило действует и для общих вопросов без указания конкретной услуги (например «сколько стоит?»): если в контексте есть блок БАЗОВЫЕ СТАВКИ, используй цифры из него для каждого направления; для остального опирайся на ПРАЙС-ЛИСТ, а не на УСЛУГИ.
 
 ГРАНИЦЫ:
 Не давай юридических гарантий ("точно одобрят"), используй "как правило", "зависит от ситуации". Не упоминай других поверенных. При сложных вопросах о цене/сроках конкретного случая — предлагай оставить заявку. Если вопрос не по теме патентов/брендов/авторских прав — вежливо верни к теме.
@@ -80,6 +81,32 @@ export function parseSiteContent(state: AppState): string {
     });
     pricesContent += `\n[Ссылка на раздел: /pricing]\n\n`;
     addBlock("Стоимость", pricesContent);
+  }
+
+  // 3.5. Headline rates — a small, deterministic summary of the base cost
+  // for the 4 core service categories, sourced from the same `prices`
+  // records as ПРАЙС-ЛИСТ (not hardcoded), so it can't drift from it.
+  // Exists because the model unreliably picks the right line out of the
+  // full ПРАЙС-ЛИСТ when a question spans multiple categories at once
+  // (e.g. "сколько стоит?" with no service named). Программа ЭВМ is
+  // deliberately omitted — there's no matching prices entry to quote as
+  // fact, same reasoning as the pricing calculator.
+  if (state.prices && state.prices.length > 0) {
+    const HEADLINE_LABELS: Record<string, string> = {
+      'trademarks-5': 'Товарный знак',
+      'patents-2': 'Изобретение',
+      'patents-13': 'Промышленный образец',
+      'patents-10': 'Полезная модель',
+    };
+    const headlineItems = state.prices.filter(p => HEADLINE_LABELS[p.id]);
+    if (headlineItems.length > 0) {
+      let ratesContent = `БАЗОВЫЕ СТАВКИ:\n`;
+      headlineItems.forEach(p => {
+        ratesContent += `- ${HEADLINE_LABELS[p.id]}: ${p.price} (Госпошлина: ${p.tax})\n`;
+      });
+      ratesContent += `\n[Ссылка на раздел: /pricing]\n\n`;
+      addBlock("Базовые ставки", ratesContent);
+    }
   }
 
   // 4. Cases
@@ -171,6 +198,7 @@ const SECTION_HEADERS = [
   'О СЕРВИСЕ:',
   'УСЛУГИ:',
   'ПРАЙС-ЛИСТ:',
+  'БАЗОВЫЕ СТАВКИ:',
   'КЕЙСЫ И ОПЫТ:',
   'СТАТЬИ И ПОЛЕЗНЫЕ МАТЕРИАЛЫ:',
   'ЧАСТО ЗАДАВАЕМЫЕ ВОПРОСЫ:',
@@ -245,10 +273,13 @@ export function searchKnowledgeBase(query: string, knowledgeBase: string, maxBlo
 
   const priceIntent = matchesPriceIntent(query);
   if (priceIntent) {
-    // ПРАЙС-ЛИСТ first: it's the actual numbers, and on its own is already
-    // close to (or over) the default budget, so it must not get pushed out
-    // by a bigger block landing earlier in the join.
+    // БАЗОВЫЕ СТАВКИ first: small and unambiguous, easiest for the model to
+    // read correctly across multiple categories in one answer. ПРАЙС-ЛИСТ
+    // next — the full numbers, already close to (or over) the default
+    // budget on its own, so it must not get pushed out by a bigger block
+    // landing earlier in the join.
     const mustHave = [
+      ...blocks.filter(b => b.startsWith('БАЗОВЫЕ СТАВКИ:')),
       ...blocks.filter(b => b.startsWith('ПРАЙС-ЛИСТ:')),
       ...blocks.filter(b => b.startsWith('УСЛУГИ:')),
     ];
