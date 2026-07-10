@@ -6,6 +6,8 @@ const PROXY_URL = typeof window !== 'undefined'
 
 const FALLBACK_SYSTEM_PROMPT = `Ты — экспертный AI-консультант патентного поверенного. Отвечай кратко и профессионально.`;
 
+export const GIGACHAT_MODEL = 'GigaChat-Max';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -105,7 +107,7 @@ export const callGigaChat = async (
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'GigaChat',
+        model: GIGACHAT_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           ...contextualMessages
