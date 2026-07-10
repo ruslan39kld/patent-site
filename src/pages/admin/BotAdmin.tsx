@@ -5,7 +5,7 @@ import { Bot, RefreshCw, Send, CheckCircle2, AlertCircle, MessageSquare } from '
 import { cn } from '../../lib/utils';
 import { useToast } from './AdminLayout';
 import { syncBotKnowledge } from '../../lib/botSync';
-import { matchesMetaQuestion, META_QUESTION_RESPONSE, matchesPriceQuestion, PRICE_QUESTION_RESPONSE } from '../../services/botService';
+import { matchesMetaQuestion, META_QUESTION_RESPONSE, matchesPriceQuestion, PRICE_QUESTION_RESPONSE, GIGACHAT_MODEL } from '../../services/botService';
 
 export default function BotAdmin() {
   const { state, updateState } = useData();
@@ -63,7 +63,7 @@ export default function BotAdmin() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'GigaChat',
+          model: GIGACHAT_MODEL,
           messages: [
             { role: 'system', content: fullContext },
             { role: 'user', content: userText }
