@@ -1,0 +1,15 @@
+meta:
+  environment: node
+  toolchain:
+    name: npm
+    version: 22
+
+# npm run build / npm run start (both already defined in package.json) are
+# auto-detected — no explicit build/run.command needed here.
+run:
+  # Must match the DATA_DIR default in server.ts (falls back to /data when
+  # DATA_DIR isn't set). Amvera mounts persistent storage here by default
+  # anyway — this just makes that pinning explicit and version-controlled
+  # instead of relying on an implicit platform default.
+  persistenceMount: /data
+  containerPort: 3000

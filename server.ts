@@ -25,18 +25,49 @@ app.use((_req, res, next) => {
   next();
 });
 
+// DATA_DIR must point at a persistent volume mount (Amvera mounts its "Data"
+// folder at /data by default — see run.persistenceMount in amvera.yml). If it
+// isn't writable/mountable, we fall back to a directory under the app's own
+// working tree so local dev keeps working — but that fallback is NOT
+// persistent: it lives inside the deploy artifact and is wiped on every
+// rebuild/redeploy. Warn loudly so this is visible in deploy logs rather than
+// silently losing uploads on the next release.
 const DATA_DIR = process.env.DATA_DIR || '/data';
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+let usingPersistentDataDir = true;
 try {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 } catch {}
-const resolvedDataDir = fs.existsSync(UPLOADS_DIR)
+if (!fs.existsSync(UPLOADS_DIR)) {
+  usingPersistentDataDir = false;
+}
+const resolvedDataDir = usingPersistentDataDir
   ? DATA_DIR
   : path.join(process.cwd(), 'data');
 fs.mkdirSync(path.join(resolvedDataDir, 'uploads'), { recursive: true });
 
+if (!usingPersistentDataDir) {
+  console.warn(
+    `[PERSISTENCE WARNING] "${DATA_DIR}" is not writable/mounted — falling back to ` +
+    `"${resolvedDataDir}", which lives inside the app's own working directory and will ` +
+    `be WIPED on the next rebuild/redeploy. All uploaded files and the SQLite DB are at ` +
+    `risk of data loss until a persistent volume is mounted at ${DATA_DIR} ` +
+    `(or DATA_DIR is pointed at one).`
+  );
+}
+
 const DB_PATH = path.join(resolvedDataDir, 'db.sqlite');
 const RESOLVED_UPLOADS_DIR = path.join(resolvedDataDir, 'uploads');
+
+// Clean up any stray temp files left behind by an upload that was interrupted
+// mid-write (crash, forced restart) before it could be renamed into place —
+// see the atomic-write storage engine below. These are never referenced by
+// any URL, so they're always safe to delete.
+for (const f of fs.readdirSync(RESOLVED_UPLOADS_DIR)) {
+  if (f.startsWith('.tmp-')) {
+    try { fs.unlinkSync(path.join(RESOLVED_UPLOADS_DIR, f)); } catch {}
+  }
+}
 
 // Filenames are unique per upload (timestamp + uuid, see multer storage below),
 // so a new upload always gets a new URL — safe to cache aggressively forever.
@@ -54,14 +85,46 @@ type Section = typeof SECTIONS[number];
 
 for (const section of SECTIONS) {
   db.exec(`CREATE TABLE IF NOT EXISTS ${section} (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)`);
+  // Older DBs (created before optimistic-concurrency support) won't have this
+  // column yet; SQLite has no "ADD COLUMN IF NOT EXISTS" on the versions we
+  // support widely, so just swallow the "duplicate column" error on rerun.
+  try { db.exec(`ALTER TABLE ${section} ADD COLUMN rev INTEGER NOT NULL DEFAULT 1`); } catch {}
 }
 
 function getSection(section: Section): unknown {
   const row = db.prepare(`SELECT data FROM ${section} WHERE id = 1`).get() as { data: string } | undefined;
   return row ? JSON.parse(row.data) : null;
 }
+function getSectionRow(section: Section): { data: unknown; rev: number } | null {
+  const row = db.prepare(`SELECT data, rev FROM ${section} WHERE id = 1`).get() as { data: string; rev: number } | undefined;
+  return row ? { data: JSON.parse(row.data), rev: row.rev } : null;
+}
 function setSection(section: Section, value: unknown) {
-  db.prepare(`INSERT INTO ${section} (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`).run(JSON.stringify(value));
+  db.prepare(`INSERT INTO ${section} (id, data, rev) VALUES (1, ?, 1) ON CONFLICT(id) DO UPDATE SET data = excluded.data, rev = rev + 1`).run(JSON.stringify(value));
+}
+
+// Compare-and-swap write: only applies when `expectedRev` matches the row's
+// current rev (or the row doesn't exist yet), so two admins saving the same
+// section at nearly the same time can't silently clobber one another — the
+// second writer gets a conflict back instead of an unnoticed lost update.
+// `expectedRev === undefined` opts out of the check (used for seeding and by
+// any caller that doesn't track revs), preserving unconditional-write callers.
+function setSectionIfMatch(
+  section: Section,
+  value: unknown,
+  expectedRev: number | undefined
+): { ok: true; rev: number } | { ok: false; current: { data: unknown; rev: number } } {
+  const existing = db.prepare(`SELECT rev FROM ${section} WHERE id = 1`).get() as { rev: number } | undefined;
+  if (!existing) {
+    db.prepare(`INSERT INTO ${section} (id, data, rev) VALUES (1, ?, 1)`).run(JSON.stringify(value));
+    return { ok: true, rev: 1 };
+  }
+  if (expectedRev !== undefined && expectedRev !== existing.rev) {
+    return { ok: false, current: getSectionRow(section)! };
+  }
+  const newRev = existing.rev + 1;
+  db.prepare(`UPDATE ${section} SET data = ?, rev = ? WHERE id = 1`).run(JSON.stringify(value), newRev);
+  return { ok: true, rev: newRev };
 }
 
 for (const section of SECTIONS) {
@@ -72,16 +135,49 @@ for (const section of SECTIONS) {
 
 app.get('/api/data', (_req, res) => {
   const result: Record<string, unknown> = {};
-  for (const section of SECTIONS) result[section] = getSection(section);
+  const revs: Record<string, number> = {};
+  for (const section of SECTIONS) {
+    const row = getSectionRow(section);
+    result[section] = row ? row.data : null;
+    revs[section] = row ? row.rev : 0;
+  }
+  result._revs = revs;
   res.json(result);
 });
 
 app.post('/api/data', (req, res) => {
   const body = req.body as Record<string, unknown>;
-  for (const section of SECTIONS) {
-    if (body[section] !== undefined) setSection(section, body[section]);
+  const expectedRevs = (body._revs as Record<string, number>) || {};
+  const sectionsToWrite = SECTIONS.filter((s) => body[s] !== undefined);
+  if (sectionsToWrite.length === 0) return res.json({ ok: true, revs: {} });
+
+  let conflict: { section: Section; current: { data: unknown; rev: number } } | null = null;
+  const newRevs: Record<string, number> = {};
+
+  // All sections in one save are applied atomically: if any of them conflicts,
+  // none of them are written, so a save never partially lands.
+  const applyAll = db.transaction(() => {
+    for (const section of sectionsToWrite) {
+      const result = setSectionIfMatch(section, body[section], expectedRevs[section]);
+      if (result.ok === false) {
+        conflict = { section, current: result.current };
+        throw new Error('CONFLICT');
+      }
+      newRevs[section] = result.rev;
+    }
+  });
+
+  try {
+    applyAll();
+  } catch (e) {
+    if (conflict) {
+      const c: { section: Section; current: { data: unknown; rev: number } } = conflict;
+      return res.status(409).json({ error: 'conflict', section: c.section, data: c.current.data, rev: c.current.rev });
+    }
+    throw e;
   }
-  res.json({ ok: true });
+
+  res.json({ ok: true, revs: newRevs });
 });
 
 // Narrow, public-safe endpoint for the site's AI bot: only the fields it
@@ -95,13 +191,60 @@ app.get('/api/bot-knowledge', (_req, res) => {
   });
 });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, RESOLVED_UPLOADS_DIR),
-  filename: (_req, file, cb) => {
+// Custom storage engine that writes to a hidden temp file and only renames it
+// into its public, final (unique) filename once the write has fully
+// completed. multer's own diskStorage writes straight to the final filename,
+// so a client that disconnects mid-upload (or a container restart mid-write)
+// could otherwise leave a truncated/corrupt file reachable at a URL that's
+// already been saved into the DB. rename() on the same filesystem is atomic,
+// so /uploads never serves a partially-written file.
+class AtomicDiskStorage implements multer.StorageEngine {
+  constructor(private readonly destDir: string) {}
+
+  _handleFile(
+    _req: express.Request,
+    file: Express.Multer.File,
+    callback: (error?: any, info?: Partial<Express.Multer.File>) => void
+  ) {
     const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${crypto.randomUUID()}${ext}`);
-  },
-});
+    const finalName = `${Date.now()}-${crypto.randomUUID()}${ext}`;
+    const tmpPath = path.join(this.destDir, `.tmp-${finalName}`);
+    const finalPath = path.join(this.destDir, finalName);
+
+    const outStream = fs.createWriteStream(tmpPath);
+
+    const cleanupAndFail = (err: Error) => {
+      outStream.destroy();
+      fs.unlink(tmpPath, () => {});
+      callback(err);
+    };
+
+    file.stream.on('error', cleanupAndFail);
+    outStream.on('error', cleanupAndFail);
+
+    outStream.on('finish', () => {
+      fs.rename(tmpPath, finalPath, (err) => {
+        if (err) return cleanupAndFail(err);
+        fs.stat(finalPath, (statErr, stats) => {
+          callback(null, {
+            destination: this.destDir,
+            filename: finalName,
+            path: finalPath,
+            size: statErr ? undefined : stats.size,
+          });
+        });
+      });
+    });
+
+    file.stream.pipe(outStream);
+  }
+
+  _removeFile(_req: express.Request, file: Express.Multer.File, callback: (error: Error | null) => void) {
+    fs.unlink(file.path, () => callback(null));
+  }
+}
+
+const storage = new AtomicDiskStorage(RESOLVED_UPLOADS_DIR);
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },

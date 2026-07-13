@@ -23,20 +23,38 @@ export default function ImageUploader({
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const UPLOAD_TIMEOUT_MS = 30000;
+
   const uploadToServer = (blob: Blob, filename: string) => {
     const formData = new FormData();
     formData.append('file', blob, filename);
-    fetch('/api/upload', { method: 'POST', body: formData })
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+    fetch('/api/upload', { method: 'POST', body: formData, signal: controller.signal })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Ошибка загрузки файла');
+        if (!res.ok) throw new Error(data.error || `Сервер вернул ошибку (${res.status})`);
         return data as { url: string };
       })
       .then((data) => onChange(data.url))
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+        // Surface a clear, actionable message instead of failing silently or
+        // falling back to a placeholder — the previous value (if any) is left
+        // untouched since onChange() is only called on success above.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setError('Сервер не отвечает (таймаут). Проверьте соединение и попробуйте снова.');
+        } else if (err instanceof TypeError) {
+          setError('Не удалось связаться с сервером. Проверьте интернет-соединение и попробуйте снова.');
+        } else {
+          setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+        }
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        clearTimeout(timer);
+        setIsLoading(false);
+      });
   };
 
   const handleFile = (file: File) => {
