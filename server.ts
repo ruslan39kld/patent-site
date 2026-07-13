@@ -145,8 +145,31 @@ app.get('/api/data', (_req, res) => {
   res.json(result);
 });
 
+// Soft validation: reject the whole request (nothing gets written) rather
+// than silently persisting reviews missing their required client photo.
+// Only checks structure that's actually required — everything else about a
+// review's shape is left unvalidated, same as before.
+function findReviewsMissingPhoto(reviews: unknown): { id?: string; name?: string }[] {
+  if (!Array.isArray(reviews)) return [];
+  return reviews
+    .filter((r) => !r || typeof r !== 'object' || !(r as { image?: unknown }).image)
+    .map((r) => ({ id: (r as { id?: string })?.id, name: (r as { name?: string })?.name }));
+}
+
 app.post('/api/data', (req, res) => {
   const body = req.body as Record<string, unknown>;
+
+  if (body.reviews !== undefined) {
+    const missingPhoto = findReviewsMissingPhoto(body.reviews);
+    if (missingPhoto.length > 0) {
+      return res.status(400).json({
+        error: 'missing_photo',
+        message: 'У отзыва должно быть фото клиента — заполните его перед сохранением.',
+        reviews: missingPhoto,
+      });
+    }
+  }
+
   const expectedRevs = (body._revs as Record<string, number>) || {};
   const sectionsToWrite = SECTIONS.filter((s) => body[s] !== undefined);
   if (sectionsToWrite.length === 0) return res.json({ ok: true, revs: {} });

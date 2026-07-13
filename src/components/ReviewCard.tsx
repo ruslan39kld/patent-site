@@ -41,8 +41,12 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
     ...(review.image ? [{ type: 'image' as const, url: review.image, name: 'Фото отзыва' }] : []),
   ];
 
-  const isImageReview = review.reviewType === 'image' && !!review.reviewImage;
-  const textIsLong = !isImageReview && (review.text || '').length > TEXT_TRUNCATE_THRESHOLD;
+  // image (avatar), reviewImage (attached scan/screenshot) and text are all
+  // independent now — `reviewType` used to make them mutually exclusive but
+  // no longer gates anything here, only whether each field is actually set.
+  const hasReviewImage = !!review.reviewImage;
+  const hasText = !!(review.text && review.text.trim());
+  const textIsLong = hasText && review.text.length > TEXT_TRUNCATE_THRESHOLD;
 
   return (
     <div
@@ -65,26 +69,33 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
         </div>
       </div>
 
-      {isImageReview ? (
-        <div className="mb-8 flex-grow relative z-10 flex items-center justify-center">
+      {hasReviewImage && (
+        <div className="mb-6 relative z-10">
+          {/* Fixed 800x600 (4:3) frame — object-contain so any scan/photo
+              (portrait, A4, square) fits whole, never cropped. */}
           <div
-            className="relative w-full h-48 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-[#E5E7EB] group/img"
+            className="relative w-full aspect-[4/3] bg-gray-50 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-[#E5E7EB] group/img"
             onClick={() => setSelectedMedia({ type: 'image', url: review.reviewImage!, name: `Отзыв от ${review.name}` })}
           >
             <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors z-20 flex items-center justify-center">
               <span className="opacity-0 group-hover/img:opacity-100 bg-white/90 text-[#1B3F7A] text-sm font-bold px-3 py-1.5 rounded-full shadow-sm transition-opacity">
-                Увеличить скриншот
+                Увеличить
               </span>
             </div>
-            <div
-              className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70 group-hover/img:scale-125 transition-transform duration-700"
-              style={{ backgroundImage: `url("${review.reviewImage}")` }}
+            <img
+              src={review.reviewImage}
+              className="absolute inset-0 w-full h-full object-contain p-2"
+              alt="Скан/фото отзыва"
             />
-            <img src={review.reviewImage} className="relative z-10 w-full h-full object-contain opacity-90 group-hover/img:opacity-100 transition-opacity" alt="Скриншот отзыва" />
           </div>
         </div>
-      ) : (
-        <div className="text-[#4A5568] mb-8 flex-grow leading-relaxed italic relative z-10 font-medium">
+      )}
+
+      {hasText && (
+        <div className={cn(
+          'text-[#4A5568] mb-8 leading-relaxed italic relative z-10 font-medium',
+          !hasReviewImage && 'flex-grow'
+        )}>
           <span className="text-[#3B82F6] text-2xl absolute -top-3 -left-3 opacity-30">"</span>
           <p className="line-clamp-4">{review.text}</p>
           {textIsLong && (
@@ -97,6 +108,8 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
           )}
         </div>
       )}
+
+      {!hasReviewImage && !hasText && <div className="flex-grow" />}
 
       {media.length > 0 && (
         <div className="flex gap-3 mb-6 relative z-10 overflow-x-auto pb-2 hide-scrollbar">

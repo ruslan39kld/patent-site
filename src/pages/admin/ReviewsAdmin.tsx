@@ -3,6 +3,7 @@ import { useData } from '../../store/DataContext';
 import { Save, Plus, Trash2, X } from 'lucide-react';
 import { ReviewItem } from '../../types';
 import ImageUploader from '../../components/ImageUploader';
+import DocxUploader from '../../components/DocxUploader';
 import ReviewCard from '../../components/ReviewCard';
 import { useToast } from './AdminLayout';
 
@@ -29,7 +30,6 @@ export default function ReviewsAdmin() {
       date: new Date().toISOString().split('T')[0],
       published: true,
       onHome: true,
-      reviewType: 'text'
     }, ...reviews]);
     setEditingId(newId);
   };
@@ -126,13 +126,20 @@ export default function ReviewsAdmin() {
             <div className="p-6 overflow-y-auto max-h-[70vh] bg-white space-y-6">
               <div className="flex gap-6 items-start">
                  <div className="w-1/3">
-                    <label className="block text-sm font-medium text-[#0F172A] mb-2">Фото клиента</label>
-                    <ImageUploader 
-                      value={editingReview.image} 
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Фото клиента <span className="text-red-500">*</span>
+                    </label>
+                    <ImageUploader
+                      value={editingReview.image}
                       onChange={(val) => updateEditingReview('image', val)}
                       shape="circle"
                       className="w-full"
                     />
+                    {!editingReview.image && (
+                      <div className="text-xs text-red-500 mt-2 font-medium">
+                        Фото клиента обязательно — без него нельзя сохранить отзыв.
+                      </div>
+                    )}
                  </div>
                  <div className="w-2/3 space-y-4">
                     <div>
@@ -161,40 +168,29 @@ export default function ReviewsAdmin() {
                  </div>
               </div>
               
-              <div className="flex gap-4">
-                 <div className="flex-1">
-                   <label className="block text-[13px] font-medium text-[#0F172A] mb-1.5">Тип отзыва</label>
-                   <select 
-                     value={editingReview.reviewType || 'text'} 
-                     onChange={e => updateEditingReview('reviewType', e.target.value)}
-                     className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm text-[#1E293B] focus:outline-none focus:border-[#1B3F7A] focus:ring-[3px] focus:ring-[#1B3F7A]/10 transition-all font-medium"
-                   >
-                     <option value="text">Текстовый отзыв</option>
-                     <option value="image">Отзыв-картинка (скриншот)</option>
-                   </select>
-                 </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[13px] font-medium text-[#0F172A]">Текст отзыва</label>
+                  <DocxUploader onInsertText={(text) => updateEditingReview('text', text)} />
+                </div>
+                <textarea
+                  rows={5}
+                  value={editingReview.text} onChange={e => updateEditingReview('text', e.target.value)}
+                  className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm text-[#1E293B] focus:outline-none focus:border-[#1B3F7A] focus:ring-[3px] focus:ring-[#1B3F7A]/10 transition-all resize-none"
+                />
               </div>
 
-              {(editingReview.reviewType === 'image') ? (
-                 <div>
-                   <label className="block text-[13px] font-medium text-[#0F172A] mb-1.5">Картинка отзыва (скриншот / скан)</label>
-                   <ImageUploader 
-                     value={editingReview.reviewImage || ''} 
-                     onChange={(val) => updateEditingReview('reviewImage', val)}
-                     shape="portrait"
-                     className="w-full max-w-sm"
-                   />
-                 </div>
-              ) : (
-                 <div>
-                    <label className="block text-[13px] font-medium text-[#0F172A] mb-1.5">Текст отзыва</label>
-                    <textarea 
-                      rows={5}
-                      value={editingReview.text} onChange={e => updateEditingReview('text', e.target.value)}
-                      className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm text-[#1E293B] focus:outline-none focus:border-[#1B3F7A] focus:ring-[3px] focus:ring-[#1B3F7A]/10 transition-all resize-none"
-                    />
-                 </div>
-              )}
+              <div>
+                <label className="block text-[13px] font-medium text-[#0F172A] mb-1.5">
+                  Скан/фото отзыва (необязательно, дополнительно к тексту)
+                </label>
+                <ImageUploader
+                  value={editingReview.reviewImage || ''}
+                  onChange={(val) => updateEditingReview('reviewImage', val)}
+                  shape="document"
+                  className="w-full max-w-sm"
+                />
+              </div>
             </div>
             
             <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex justify-end gap-3">
@@ -204,12 +200,14 @@ export default function ReviewsAdmin() {
                >
                  Отмена
                </button>
-               <button 
+               <button
                  onClick={() => {
                    handleSaveAll();
                    closeEdit();
                  }}
-                 className="px-5 py-2 rounded-lg bg-[#1B3F7A] text-white font-medium hover:bg-[#2960B0] transition-colors text-sm"
+                 disabled={!editingReview.image}
+                 title={!editingReview.image ? 'Добавьте фото клиента, чтобы сохранить' : undefined}
+                 className="px-5 py-2 rounded-lg bg-[#1B3F7A] text-white font-medium hover:bg-[#2960B0] disabled:bg-[#94A3B8] disabled:cursor-not-allowed transition-colors text-sm"
                >
                  Сохранить
                </button>

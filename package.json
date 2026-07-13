@@ -25,6 +25,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
+    "mammoth": "^1.12.0",
     "motion": "^12.40.0",
     "multer": "^2.2.0",
     "react": "^19.0.1",
