@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { AppState } from '../types';
 import { initialData } from './initialData';
 import { syncBotKnowledge } from '../lib/botSync';
@@ -25,6 +25,13 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  // Per-section revision numbers from the server, used for optimistic
+  // concurrency: a save includes the rev it last saw for each section it's
+  // touching, so the server can detect (and reject) a write that would
+  // silently clobber a change made by another admin/browser in the meantime.
+  // A ref, not state — it's write-plumbing, not something that should re-render.
+  const revsRef = useRef<Record<string, number>>({});
+
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem('tarasova_patent_data');
     if (saved) {
@@ -145,6 +152,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         if (!data) return;
+        const revs = (data as Record<string, unknown>)._revs as Record<string, number> | undefined;
+        if (revs) revsRef.current = { ...revsRef.current, ...revs };
         setState(prev => {
           const next: AppState = { ...prev };
           for (const key of SERVER_SECTIONS) {
@@ -161,6 +170,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateState = (newState: AppState) => {
     const syncedState = syncBotKnowledge(newState);
+    const previousState = state;
     setState(syncedState);
 
     // Only publish the sections that actually changed (reference comparison
@@ -168,18 +178,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // `{ ...state, someSection: newValue }`), so a save in one part of the
     // admin never overwrites other sections with this browser's stale copy.
     const changedSections: Record<string, unknown> = {};
+    const expectedRevs: Record<string, number> = {};
     for (const key of SERVER_SECTIONS) {
-      const before = (state as unknown as Record<string, unknown>)[key];
+      const before = (previousState as unknown as Record<string, unknown>)[key];
       const after = (syncedState as unknown as Record<string, unknown>)[key];
-      if (after !== before) changedSections[key] = after;
+      if (after !== before) {
+        changedSections[key] = after;
+        if (revsRef.current[key] !== undefined) expectedRevs[key] = revsRef.current[key];
+      }
     }
     if (Object.keys(changedSections).length === 0) return;
 
     fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changedSections),
-    }).catch(err => console.error('Failed to publish changes to server', err));
+      body: JSON.stringify({ ...changedSections, _revs: expectedRevs }),
+    })
+      .then(async (res) => {
+        if (res.status === 409) {
+          const conflict = await res.json().catch(() => null) as { section?: string; data?: unknown; rev?: number } | null;
+          if (conflict?.section) {
+            // Someone else saved this section first. Revert this browser's
+            // optimistic change for just that section back to the server's
+            // current value instead of silently overwriting their save, and
+            // tell the admin so they can redo their edit on top of it.
+            revsRef.current[conflict.section] = conflict.rev ?? revsRef.current[conflict.section];
+            setState(prev => ({ ...prev, [conflict.section as string]: conflict.data }));
+            window.alert(
+              `Раздел "${conflict.section}" только что был изменён в другом окне/браузере.\n\n` +
+              `Ваши последние изменения в этом разделе НЕ сохранены, чтобы не затереть чужие правки. ` +
+              `Обновите страницу и внесите изменения заново.`
+            );
+          }
+          return;
+        }
+        if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+        const data = await res.json().catch(() => null) as { revs?: Record<string, number> } | null;
+        if (data?.revs) revsRef.current = { ...revsRef.current, ...data.revs };
+      })
+      .catch(err => console.error('Failed to publish changes to server', err));
   };
 
   const resetState = () => {
