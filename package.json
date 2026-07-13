@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "backup": "node scripts/backup.cjs"
+    "backup": "node scripts/backup.cjs",
+    "check-data": "node scripts/check-data-integrity.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
