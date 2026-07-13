@@ -38,7 +38,9 @@ fs.mkdirSync(path.join(resolvedDataDir, 'uploads'), { recursive: true });
 const DB_PATH = path.join(resolvedDataDir, 'db.sqlite');
 const RESOLVED_UPLOADS_DIR = path.join(resolvedDataDir, 'uploads');
 
-app.use('/uploads', express.static(RESOLVED_UPLOADS_DIR));
+// Filenames are unique per upload (timestamp + uuid, see multer storage below),
+// so a new upload always gets a new URL — safe to cache aggressively forever.
+app.use('/uploads', express.static(RESOLVED_UPLOADS_DIR, { maxAge: '1y', immutable: true }));
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');

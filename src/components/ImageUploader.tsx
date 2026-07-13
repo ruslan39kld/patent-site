@@ -23,6 +23,22 @@ export default function ImageUploader({
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const uploadToServer = (blob: Blob, filename: string) => {
+    const formData = new FormData();
+    formData.append('file', blob, filename);
+    fetch('/api/upload', { method: 'POST', body: formData })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Ошибка загрузки файла');
+        return data as { url: string };
+      })
+      .then((data) => onChange(data.url))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+      })
+      .finally(() => setIsLoading(false));
+  };
+
   const handleFile = (file: File) => {
     setError(null);
     setIsLoading(true);
@@ -38,17 +54,29 @@ export default function ImageUploader({
       return;
     }
 
+    if (isPdf) {
+      // PDFs are previewed inline via a data URI blob (see PdfViewer), so they
+      // stay client-side for now rather than going through /api/upload.
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        onChange(e.target?.result as string);
+        setIsLoading(false);
+      };
+      reader.onerror = () => {
+        setError('Не удалось прочитать файл');
+        setIsLoading(false);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Compress the image via canvas, then upload the resulting blob to the
+    // server so it gets a real, unique, persistent URL under /uploads instead
+    // of being embedded as base64 in the app state (which only ever lived in
+    // this browser's localStorage and never reached other browsers/devices).
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
-      
-      if (isPdf) {
-        onChange(result);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Compress image using canvas
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -71,21 +99,30 @@ export default function ImageUploader({
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          // 0.8 quality jpeg is much smaller than raw base64
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-          onChange(compressedBase64);
-        } else {
-          onChange(result); // Fallback to raw if logic fails
+        if (!ctx) {
+          setError('Не удалось обработать изображение');
+          setIsLoading(false);
+          return;
         }
-        setIsLoading(false);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            setError('Не удалось обработать изображение');
+            setIsLoading(false);
+            return;
+          }
+          uploadToServer(blob, `${file.name.replace(/\.[^./]+$/, '')}.jpg`);
+        }, 'image/jpeg', 0.8);
       };
       img.onerror = () => {
-        onChange(result); // Fallback
+        setError('Не удалось прочитать изображение');
         setIsLoading(false);
       };
       img.src = result;
+    };
+    reader.onerror = () => {
+      setError('Не удалось прочитать файл');
+      setIsLoading(false);
     };
     reader.readAsDataURL(file);
   };

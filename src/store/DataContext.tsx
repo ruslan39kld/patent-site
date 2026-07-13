@@ -3,6 +3,18 @@ import { AppState } from '../types';
 import { initialData } from './initialData';
 import { syncBotKnowledge } from '../lib/botSync';
 
+// Keys that are persisted server-side (see SECTIONS in server.ts). `updateState`
+// only ever needs to publish the ones that actually changed, so admin saves
+// never clobber sections (e.g. `leads`) that this browser's copy is stale on.
+// `stats` is deliberately excluded: it's a per-browser visit counter that is
+// never published via updateState (only through the local-only effect below),
+// so pulling/pushing it here would reset it from the server's stale/zeroed copy.
+const SERVER_SECTIONS = [
+  'content', 'services', 'prices', 'cases', 'blogPosts',
+  'faqItems', 'leads', 'reviews', 'customBlocks', 'leadMagnets',
+  'botConfig',
+] as const;
+
 interface DataContextType {
   state: AppState;
   updateState: (newState: AppState) => void;
@@ -126,26 +138,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Pull the server's copy of botConfig on load, in case this browser's
-    // localStorage is stale or empty (new device, cleared cache, etc.).
+    // Pull the server's copy of every section on load, in case this browser's
+    // localStorage is stale or empty (new device, cleared cache, incognito).
+    // The server is the source of truth for cross-browser sync.
     fetch('/api/data')
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (data?.botConfig) {
-          setState(prev => ({ ...prev, botConfig: data.botConfig }));
-        }
+        if (!data) return;
+        setState(prev => {
+          const next: AppState = { ...prev };
+          for (const key of SERVER_SECTIONS) {
+            const value = (data as Record<string, unknown>)[key];
+            if (value !== undefined && value !== null) {
+              (next as unknown as Record<string, unknown>)[key] = value;
+            }
+          }
+          return next;
+        });
       })
-      .catch(err => console.error('Failed to fetch botConfig from server', err));
+      .catch(err => console.error('Failed to fetch state from server', err));
   }, []);
 
   const updateState = (newState: AppState) => {
     const syncedState = syncBotKnowledge(newState);
     setState(syncedState);
+
+    // Only publish the sections that actually changed (reference comparison
+    // against the previous state, which every admin page produces via
+    // `{ ...state, someSection: newValue }`), so a save in one part of the
+    // admin never overwrites other sections with this browser's stale copy.
+    const changedSections: Record<string, unknown> = {};
+    for (const key of SERVER_SECTIONS) {
+      const before = (state as unknown as Record<string, unknown>)[key];
+      const after = (syncedState as unknown as Record<string, unknown>)[key];
+      if (after !== before) changedSections[key] = after;
+    }
+    if (Object.keys(changedSections).length === 0) return;
+
     fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ botConfig: syncedState.botConfig }),
-    }).catch(err => console.error('Failed to publish botConfig to server', err));
+      body: JSON.stringify(changedSections),
+    }).catch(err => console.error('Failed to publish changes to server', err));
   };
 
   const resetState = () => {
