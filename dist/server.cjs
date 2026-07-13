@@ -1734,7 +1734,7 @@ var resolvedDataDir = import_fs.default.existsSync(UPLOADS_DIR) ? DATA_DIR : imp
 import_fs.default.mkdirSync(import_path.default.join(resolvedDataDir, "uploads"), { recursive: true });
 var DB_PATH = import_path.default.join(resolvedDataDir, "db.sqlite");
 var RESOLVED_UPLOADS_DIR = import_path.default.join(resolvedDataDir, "uploads");
-app.use("/uploads", import_express.default.static(RESOLVED_UPLOADS_DIR));
+app.use("/uploads", import_express.default.static(RESOLVED_UPLOADS_DIR, { maxAge: "1y", immutable: true }));
 var db = new import_better_sqlite3.default(DB_PATH);
 db.pragma("journal_mode = WAL");
 var SECTIONS = [
