@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, Image as ImageIcon, FileText, X } from 'lucide-react';
+import { Star, Image as ImageIcon, FileText, X, ZoomIn } from 'lucide-react';
 import { ReviewItem } from '../types';
 import { cn } from '../lib/utils';
 import Modal from './Modal';
@@ -36,10 +36,11 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
   const [selectedMedia, setSelectedMedia] = useState<{ type: 'image' | 'pdf'; url: string; name: string } | null>(null);
   const [showFullText, setShowFullText] = useState(false);
 
-  const media = [
-    ...(review.media || []),
-    ...(review.image ? [{ type: 'image' as const, url: review.image, name: 'Фото отзыва' }] : []),
-  ];
+  // Explicit attachments only — the client's avatar (`image`) and the
+  // review's scan/photo (`reviewImage`) are both already shown directly in
+  // the card (header avatar, 800x600 frame below), so neither belongs here
+  // too as a redundant "Фото отзыва"-style button.
+  const media = review.media || [];
 
   // image (avatar), reviewImage (attached scan/screenshot) and text are all
   // independent now — `reviewType` used to make them mutually exclusive but
@@ -77,16 +78,16 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
             className="relative w-full aspect-[4/3] bg-gray-50 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-[#E5E7EB] group/img"
             onClick={() => setSelectedMedia({ type: 'image', url: review.reviewImage!, name: `Отзыв от ${review.name}` })}
           >
-            <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors z-20 flex items-center justify-center">
-              <span className="opacity-0 group-hover/img:opacity-100 bg-white/90 text-[#1B3F7A] text-sm font-bold px-3 py-1.5 rounded-full shadow-sm transition-opacity">
-                Увеличить
-              </span>
-            </div>
             <img
               src={review.reviewImage}
               className="absolute inset-0 w-full h-full object-contain p-2"
               alt="Скан/фото отзыва"
             />
+            <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors z-20 flex items-center justify-center pointer-events-none">
+              <div className="w-10 h-10 rounded-full bg-white/90 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                <ZoomIn className="w-5 h-5 text-[#1B3F7A]" />
+              </div>
+            </div>
           </div>
         </div>
       )}

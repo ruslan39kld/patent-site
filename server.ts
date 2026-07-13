@@ -149,18 +149,46 @@ app.get('/api/data', (_req, res) => {
 // than silently persisting reviews missing their required client photo.
 // Only checks structure that's actually required — everything else about a
 // review's shape is left unvalidated, same as before.
-function findReviewsMissingPhoto(reviews: unknown): { id?: string; name?: string }[] {
-  if (!Array.isArray(reviews)) return [];
-  return reviews
-    .filter((r) => !r || typeof r !== 'object' || !(r as { image?: unknown }).image)
-    .map((r) => ({ id: (r as { id?: string })?.id, name: (r as { name?: string })?.name }));
+//
+// The requirement only applies to reviews that are new or actually being
+// changed in this save — a legacy review that predates the requirement and
+// is just riding along unchanged in a bigger array write (e.g. because a
+// *different* review's onHome toggle triggered a full-array save) is
+// grandfathered in as-is. The moment someone explicitly edits that record,
+// it's compared against its previous version and, being different, now
+// needs a photo like any other write.
+function findReviewsMissingPhoto(newReviews: unknown, previousReviews: unknown): { id?: string; name?: string }[] {
+  if (!Array.isArray(newReviews)) return [];
+
+  const previousById = new Map<string, unknown>();
+  if (Array.isArray(previousReviews)) {
+    for (const r of previousReviews) {
+      if (r && typeof r === 'object' && typeof (r as { id?: unknown }).id === 'string') {
+        previousById.set((r as { id: string }).id, r);
+      }
+    }
+  }
+
+  const missing: { id?: string; name?: string }[] = [];
+  for (const r of newReviews) {
+    if (!r || typeof r !== 'object') continue;
+    if ((r as { image?: unknown }).image) continue;
+
+    const id = (r as { id?: string }).id;
+    const previous = id !== undefined ? previousById.get(id) : undefined;
+    const isUnchangedLegacyRecord = previous !== undefined && JSON.stringify(previous) === JSON.stringify(r);
+    if (isUnchangedLegacyRecord) continue;
+
+    missing.push({ id, name: (r as { name?: string }).name });
+  }
+  return missing;
 }
 
 app.post('/api/data', (req, res) => {
   const body = req.body as Record<string, unknown>;
 
   if (body.reviews !== undefined) {
-    const missingPhoto = findReviewsMissingPhoto(body.reviews);
+    const missingPhoto = findReviewsMissingPhoto(body.reviews, getSection('reviews'));
     if (missingPhoto.length > 0) {
       return res.status(400).json({
         error: 'missing_photo',
