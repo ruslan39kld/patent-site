@@ -4,9 +4,17 @@ meta:
     name: npm
     version: 22
 
-# npm run build / npm run start (both already defined in package.json) are
-# auto-detected — no explicit build/run.command needed here.
+# `build`/`run.command` are NOT auto-detected from package.json's own
+# build/start scripts — Amvera requires one of `run.scriptName` or
+# `run.command` to be set explicitly, or it fails with a config error
+# (confirmed in production: omitting both left `scriptName` blank and the
+# app wouldn't start). `additionalCommands` runs after `npm install` during
+# the build phase; `command` is what actually starts the container.
+build:
+  additionalCommands: npm run build
+
 run:
+  command: npm run start
   # Must match the DATA_DIR default in server.ts (falls back to /data when
   # DATA_DIR isn't set). Amvera mounts persistent storage here by default
   # anyway — this just makes that pinning explicit and version-controlled
