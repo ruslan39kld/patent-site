@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useData } from '../../store/DataContext';
-import { Save, Plus, Trash2, Star, X } from 'lucide-react';
+import { Save, Plus, Trash2, X } from 'lucide-react';
 import { ReviewItem } from '../../types';
 import ImageUploader from '../../components/ImageUploader';
+import ReviewCard from '../../components/ReviewCard';
 import { useToast } from './AdminLayout';
 
 export default function ReviewsAdmin() {
@@ -73,42 +74,11 @@ export default function ReviewsAdmin() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reviews.map(r => (
           <div key={r.id} className="bg-white rounded-[12px] border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col hover:border-[#CBD5E1] transition-colors">
-            <div className="p-6 flex-1">
-              <div className="flex items-center gap-4 mb-4">
-                {r.image ? (
-                  <img src={r.image} alt={r.name} className="w-14 h-14 rounded-full object-cover shrink-0 border border-[#E2E8F0]" />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-[#EEF3FB] text-[#1B3F7A] flex items-center justify-center font-bold text-lg shrink-0">
-                    {r.name.substring(0, 2).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <div className="font-bold text-[#0F172A] leading-tight">{r.name}</div>
-                  <div className="text-[13px] text-[#64748B] mt-0.5 max-w-[160px] truncate">{r.company || r.service || 'Клиент'}</div>
-                </div>
-              </div>
-              
-              <div className="flex gap-1 mb-3">
-                {[1,2,3,4,5].map(star => (
-                   <Star key={star} className="w-4 h-4 fill-[#C8A028] text-[#C8A028]" />
-                ))}
-              </div>
-              
-              {r.reviewType === 'image' ? (
-                 <div className="mb-4 h-20 w-full overflow-hidden rounded bg-gray-100 flex items-center justify-center text-sm text-gray-500 border border-gray-200">
-                    {r.reviewImage ? (
-                       <img src={r.reviewImage} className="w-full h-full object-cover opacity-50" />
-                    ) : (
-                       <span>[Отзыв-картинка]</span>
-                    )}
-                 </div>
-              ) : (
-                <p className="text-[14px] text-[#1E293B] line-clamp-3 mb-4 leading-relaxed">
-                  {r.text || 'Нет текста отзыва...'}
-                </p>
-              )}
-              
-              <label className="flex items-center cursor-pointer mt-auto">
+            {/* Same card component the live site renders, so this preview never drifts from what visitors actually see. */}
+            <ReviewCard review={r} className="!rounded-none !border-none !shadow-none !p-6 flex-1" />
+
+            <div className="px-6 pb-4">
+              <label className="flex items-center cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={r.onHome} onChange={(e) => {
                     const next = reviews.map(rev => rev.id === r.id ? { ...rev, onHome: e.target.checked } : rev);
@@ -120,7 +90,7 @@ export default function ReviewsAdmin() {
                 <div className="ml-3 text-[13px] text-[#64748B] font-medium">На главной</div>
               </label>
             </div>
-            
+
             <div className="grid grid-cols-2 border-t border-[#E2E8F0] bg-[#F8FAFC]">
               <button 
                 onClick={() => setEditingId(r.id)}

@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, FileSignature, Shield, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { ArrowLeft, FileSignature } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useData } from '../store/DataContext';
-import Modal from '../components/Modal';
+import DocumentViewerModal, { DocumentPreview } from '../components/DocumentViewerModal';
 
 export default function Certificates() {
   const { state } = useData();
-  const [selectedCert, setSelectedCert] = useState<{name: string, type: string} | null>(null);
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [selectedCert, setSelectedCert] = useState<DocumentPreview | null>(null);
   const location = useLocation();
 
   const extraCerts = Array.from({ length: 4 }).map((_, i) => ({
@@ -52,7 +51,7 @@ export default function Certificates() {
                {/* Document Thumbnail */}
                <div className="w-full aspect-[1/1.4] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg mb-4 md:mb-5 relative overflow-hidden shadow-sm flex flex-col items-center justify-center p-2 group-hover:border-[#3B82F6]/30 transition-colors z-10 mx-auto max-w-[140px]">
                  {(cert as any).image ? (
-                   <img src={(cert as any).image} alt={cert.name} className="absolute inset-0 w-full h-full object-cover" />
+                   <img src={(cert as any).image} alt={cert.name} className="absolute inset-0 w-full h-full object-contain p-1" />
                  ) : (
                    <React.Fragment>
                      <div className="absolute top-2 right-2 flex flex-col gap-[2px]">
@@ -79,67 +78,7 @@ export default function Certificates() {
         </div>
       </div>
 
-      <Modal isOpen={!!selectedCert} onClose={() => { setSelectedCert(null); setIsZoomed(false); }} className="p-0 bg-transparent border-none shadow-none md:shadow-none w-full max-w-5xl max-h-[900px] overflow-hidden" hideCloseButton>
-        {selectedCert && (
-          <div className="flex flex-col items-center justify-center w-full h-full">
-            <div 
-              className="w-full h-full max-w-5xl bg-white rounded-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-[#3B82F6]/20 relative mx-auto"
-              style={{ height: '85vh', maxHeight: '800px', minHeight: '300px' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Header portion */}
-              <div className="w-full h-[80px] bg-[#1B3F7A] flex items-center px-4 md:px-8 shrink-0 relative overflow-hidden text-left shadow-md z-10">
-                 <div className="absolute top-1/2 left-0 -translate-y-1/2 w-64 h-64 bg-[#3B82F6]/30 blur-[120px] rounded-full pointer-events-none"></div>
-                 <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] relative z-10 shrink-0">
-                    <FileSignature className="w-5 h-5 md:w-6 md:h-6" />
-                 </div>
-                 <div className="flex flex-col ml-3 md:ml-4 relative z-10 flex-1 min-w-0 pr-28">
-                   <h3 className="text-white font-black text-sm md:text-lg tracking-wide uppercase truncate block">{selectedCert.name}</h3>
-                   <div className="flex items-center gap-2 mt-0.5">
-                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#60A5FA', display: 'inline-block', boxShadow: '0 0 8px #60A5FA' }}/>
-                     <span className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-white/70">
-                       Официальный документ
-                     </span>
-                   </div>
-                 </div>
-                 
-                 {/* Controls */}
-                 <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex items-center gap-2 z-20">
-                   <button 
-                    onClick={() => setIsZoomed(!isZoomed)}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 hover:border-white/30 transition-all font-medium"
-                    title={isZoomed ? "Уменьшить" : "Увеличить"}
-                    aria-label="Zoom toggle"
-                   >
-                     {isZoomed ? <ZoomOut className="w-4 h-4 md:w-5 md:h-5" /> : <ZoomIn className="w-4 h-4 md:w-5 md:h-5" />}
-                   </button>
-                   <button 
-                    onClick={() => { setSelectedCert(null); setIsZoomed(false); }}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white text-[#1B3F7A] hover:bg-gray-100 flex items-center justify-center transition-all"
-                    title="Закрыть"
-                    aria-label="Close modal"
-                   >
-                     <X className="w-4 h-4 md:w-5 md:h-5" />
-                   </button>
-                 </div>
-              </div>
-              {/* Document placeholder portion */}
-              <div className="w-full p-4 md:p-8 bg-[#E2E8F0] flex-1 overflow-auto min-h-0 relative">
-                 <div className={`bg-white shadow-2xl overflow-hidden flex flex-col mx-auto relative border border-[#CBD5E1] transition-all duration-300 ${isZoomed ? 'w-[200%] md:w-[150%] xl:w-[200%] max-w-none origin-top-left' : 'w-full max-w-xl md:max-w-3xl origin-top'}`}>
-                    <img 
-                      src={(selectedCert as any).image || "https://images.unsplash.com/photo-1590402237433-286eeacb5387?q=80&w=1400&auto=format&fit=crop"}
-                      alt={selectedCert.name} 
-                      className={`w-full h-auto object-cover opacity-[0.98] transition-all duration-500 ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
-                      onClick={() => setIsZoomed(!isZoomed)}
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-blue-900/5 mix-blend-multiply pointer-events-none"></div>
-                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal> 
+      <DocumentViewerModal document={selectedCert} onClose={() => setSelectedCert(null)} />
     </div>
   );
 }
