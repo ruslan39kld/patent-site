@@ -212,6 +212,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           return;
         }
+        if (res.status === 400) {
+          // Request was rejected outright (e.g. a review is missing its
+          // required photo) — nothing was written server-side, so revert
+          // this browser's optimistic update for the affected sections back
+          // to what they were before, instead of showing a "saved" state
+          // that never actually landed.
+          const err = await res.json().catch(() => null) as { message?: string; reviews?: { id?: string; name?: string }[] } | null;
+          setState(prev => {
+            const reverted = { ...prev };
+            for (const key of Object.keys(changedSections)) {
+              (reverted as unknown as Record<string, unknown>)[key] = (previousState as unknown as Record<string, unknown>)[key];
+            }
+            return reverted;
+          });
+          const list = err?.reviews?.map(r => r.name || r.id).filter(Boolean).join(', ');
+          window.alert(
+            (err?.message || 'Сервер отклонил сохранение.') +
+            (list ? `\n\nОтзывы без фото: ${list}` : '')
+          );
+          return;
+        }
         if (!res.ok) throw new Error(`Save failed: ${res.status}`);
         const data = await res.json().catch(() => null) as { revs?: Record<string, number> } | null;
         if (data?.revs) revsRef.current = { ...revsRef.current, ...data.revs };

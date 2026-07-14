@@ -88,8 +88,16 @@ export interface ReviewItem {
   date?: string;
   published?: boolean;
   onHome?: boolean;
+  // Client avatar. Required going forward (enforced in the admin form and by
+  // the server), kept optional here for backward compatibility with records
+  // written before that requirement existed.
   image?: string;
+  // No longer used to pick between text/reviewImage — both can be present at
+  // once and are rendered independently. Kept optional so older records that
+  // still carry it (from when it *was* an either/or switch) keep parsing.
   reviewType?: 'text' | 'image';
+  // Scan/photo attached to the review (e.g. a screenshot or document),
+  // independent of `image` (the client's avatar) and `text`.
   reviewImage?: string;
   media?: {
     type: 'image' | 'pdf';
