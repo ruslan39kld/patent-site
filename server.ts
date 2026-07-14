@@ -145,58 +145,8 @@ app.get('/api/data', (_req, res) => {
   res.json(result);
 });
 
-// Soft validation: reject the whole request (nothing gets written) rather
-// than silently persisting reviews missing their required client photo.
-// Only checks structure that's actually required — everything else about a
-// review's shape is left unvalidated, same as before.
-//
-// The requirement only applies to reviews that are new or actually being
-// changed in this save — a legacy review that predates the requirement and
-// is just riding along unchanged in a bigger array write (e.g. because a
-// *different* review's onHome toggle triggered a full-array save) is
-// grandfathered in as-is. The moment someone explicitly edits that record,
-// it's compared against its previous version and, being different, now
-// needs a photo like any other write.
-function findReviewsMissingPhoto(newReviews: unknown, previousReviews: unknown): { id?: string; name?: string }[] {
-  if (!Array.isArray(newReviews)) return [];
-
-  const previousById = new Map<string, unknown>();
-  if (Array.isArray(previousReviews)) {
-    for (const r of previousReviews) {
-      if (r && typeof r === 'object' && typeof (r as { id?: unknown }).id === 'string') {
-        previousById.set((r as { id: string }).id, r);
-      }
-    }
-  }
-
-  const missing: { id?: string; name?: string }[] = [];
-  for (const r of newReviews) {
-    if (!r || typeof r !== 'object') continue;
-    if ((r as { image?: unknown }).image) continue;
-
-    const id = (r as { id?: string }).id;
-    const previous = id !== undefined ? previousById.get(id) : undefined;
-    const isUnchangedLegacyRecord = previous !== undefined && JSON.stringify(previous) === JSON.stringify(r);
-    if (isUnchangedLegacyRecord) continue;
-
-    missing.push({ id, name: (r as { name?: string }).name });
-  }
-  return missing;
-}
-
 app.post('/api/data', (req, res) => {
   const body = req.body as Record<string, unknown>;
-
-  if (body.reviews !== undefined) {
-    const missingPhoto = findReviewsMissingPhoto(body.reviews, getSection('reviews'));
-    if (missingPhoto.length > 0) {
-      return res.status(400).json({
-        error: 'missing_photo',
-        message: 'У отзыва должно быть фото клиента — заполните его перед сохранением.',
-        reviews: missingPhoto,
-      });
-    }
-  }
 
   const expectedRevs = (body._revs as Record<string, number>) || {};
   const sectionsToWrite = SECTIONS.filter((s) => body[s] !== undefined);
