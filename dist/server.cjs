@@ -1726,14 +1726,31 @@ app.use((_req, res, next) => {
 });
 var DATA_DIR = process.env.DATA_DIR || "/data";
 var UPLOADS_DIR = import_path.default.join(DATA_DIR, "uploads");
+var usingPersistentDataDir = true;
 try {
   import_fs.default.mkdirSync(UPLOADS_DIR, { recursive: true });
 } catch {
 }
-var resolvedDataDir = import_fs.default.existsSync(UPLOADS_DIR) ? DATA_DIR : import_path.default.join(process.cwd(), "data");
+if (!import_fs.default.existsSync(UPLOADS_DIR)) {
+  usingPersistentDataDir = false;
+}
+var resolvedDataDir = usingPersistentDataDir ? DATA_DIR : import_path.default.join(process.cwd(), "data");
 import_fs.default.mkdirSync(import_path.default.join(resolvedDataDir, "uploads"), { recursive: true });
+if (!usingPersistentDataDir) {
+  console.warn(
+    `[PERSISTENCE WARNING] "${DATA_DIR}" is not writable/mounted \u2014 falling back to "${resolvedDataDir}", which lives inside the app's own working directory and will be WIPED on the next rebuild/redeploy. All uploaded files and the SQLite DB are at risk of data loss until a persistent volume is mounted at ${DATA_DIR} (or DATA_DIR is pointed at one).`
+  );
+}
 var DB_PATH = import_path.default.join(resolvedDataDir, "db.sqlite");
 var RESOLVED_UPLOADS_DIR = import_path.default.join(resolvedDataDir, "uploads");
+for (const f of import_fs.default.readdirSync(RESOLVED_UPLOADS_DIR)) {
+  if (f.startsWith(".tmp-")) {
+    try {
+      import_fs.default.unlinkSync(import_path.default.join(RESOLVED_UPLOADS_DIR, f));
+    } catch {
+    }
+  }
+}
 app.use("/uploads", import_express.default.static(RESOLVED_UPLOADS_DIR, { maxAge: "1y", immutable: true }));
 var db = new import_better_sqlite3.default(DB_PATH);
 db.pragma("journal_mode = WAL");
@@ -1753,13 +1770,34 @@ var SECTIONS = [
 ];
 for (const section of SECTIONS) {
   db.exec(`CREATE TABLE IF NOT EXISTS ${section} (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL)`);
+  try {
+    db.exec(`ALTER TABLE ${section} ADD COLUMN rev INTEGER NOT NULL DEFAULT 1`);
+  } catch {
+  }
 }
 function getSection(section) {
   const row = db.prepare(`SELECT data FROM ${section} WHERE id = 1`).get();
   return row ? JSON.parse(row.data) : null;
 }
+function getSectionRow(section) {
+  const row = db.prepare(`SELECT data, rev FROM ${section} WHERE id = 1`).get();
+  return row ? { data: JSON.parse(row.data), rev: row.rev } : null;
+}
 function setSection(section, value) {
-  db.prepare(`INSERT INTO ${section} (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`).run(JSON.stringify(value));
+  db.prepare(`INSERT INTO ${section} (id, data, rev) VALUES (1, ?, 1) ON CONFLICT(id) DO UPDATE SET data = excluded.data, rev = rev + 1`).run(JSON.stringify(value));
+}
+function setSectionIfMatch(section, value, expectedRev) {
+  const existing = db.prepare(`SELECT rev FROM ${section} WHERE id = 1`).get();
+  if (!existing) {
+    db.prepare(`INSERT INTO ${section} (id, data, rev) VALUES (1, ?, 1)`).run(JSON.stringify(value));
+    return { ok: true, rev: 1 };
+  }
+  if (expectedRev !== void 0 && expectedRev !== existing.rev) {
+    return { ok: false, current: getSectionRow(section) };
+  }
+  const newRev = existing.rev + 1;
+  db.prepare(`UPDATE ${section} SET data = ?, rev = ? WHERE id = 1`).run(JSON.stringify(value), newRev);
+  return { ok: true, rev: newRev };
 }
 for (const section of SECTIONS) {
   if (getSection(section) === null) {
@@ -1768,15 +1806,42 @@ for (const section of SECTIONS) {
 }
 app.get("/api/data", (_req, res) => {
   const result = {};
-  for (const section of SECTIONS) result[section] = getSection(section);
+  const revs = {};
+  for (const section of SECTIONS) {
+    const row = getSectionRow(section);
+    result[section] = row ? row.data : null;
+    revs[section] = row ? row.rev : 0;
+  }
+  result._revs = revs;
   res.json(result);
 });
 app.post("/api/data", (req, res) => {
   const body = req.body;
-  for (const section of SECTIONS) {
-    if (body[section] !== void 0) setSection(section, body[section]);
+  const expectedRevs = body._revs || {};
+  const sectionsToWrite = SECTIONS.filter((s) => body[s] !== void 0);
+  if (sectionsToWrite.length === 0) return res.json({ ok: true, revs: {} });
+  let conflict = null;
+  const newRevs = {};
+  const applyAll = db.transaction(() => {
+    for (const section of sectionsToWrite) {
+      const result = setSectionIfMatch(section, body[section], expectedRevs[section]);
+      if (result.ok === false) {
+        conflict = { section, current: result.current };
+        throw new Error("CONFLICT");
+      }
+      newRevs[section] = result.rev;
+    }
+  });
+  try {
+    applyAll();
+  } catch (e) {
+    if (conflict) {
+      const c = conflict;
+      return res.status(409).json({ error: "conflict", section: c.section, data: c.current.data, rev: c.current.rev });
+    }
+    throw e;
   }
-  res.json({ ok: true });
+  res.json({ ok: true, revs: newRevs });
 });
 app.get("/api/bot-knowledge", (_req, res) => {
   const botConfig = getSection("botConfig");
@@ -1786,13 +1851,44 @@ app.get("/api/bot-knowledge", (_req, res) => {
     faqItems: getSection("faqItems") ?? []
   });
 });
-var storage = import_multer.default.diskStorage({
-  destination: (_req, _file, cb) => cb(null, RESOLVED_UPLOADS_DIR),
-  filename: (_req, file, cb) => {
-    const ext = import_path.default.extname(file.originalname);
-    cb(null, `${Date.now()}-${import_crypto.default.randomUUID()}${ext}`);
+var AtomicDiskStorage = class {
+  constructor(destDir) {
+    this.destDir = destDir;
   }
-});
+  _handleFile(_req, file, callback) {
+    const ext = import_path.default.extname(file.originalname);
+    const finalName = `${Date.now()}-${import_crypto.default.randomUUID()}${ext}`;
+    const tmpPath = import_path.default.join(this.destDir, `.tmp-${finalName}`);
+    const finalPath = import_path.default.join(this.destDir, finalName);
+    const outStream = import_fs.default.createWriteStream(tmpPath);
+    const cleanupAndFail = (err) => {
+      outStream.destroy();
+      import_fs.default.unlink(tmpPath, () => {
+      });
+      callback(err);
+    };
+    file.stream.on("error", cleanupAndFail);
+    outStream.on("error", cleanupAndFail);
+    outStream.on("finish", () => {
+      import_fs.default.rename(tmpPath, finalPath, (err) => {
+        if (err) return cleanupAndFail(err);
+        import_fs.default.stat(finalPath, (statErr, stats) => {
+          callback(null, {
+            destination: this.destDir,
+            filename: finalName,
+            path: finalPath,
+            size: statErr ? void 0 : stats.size
+          });
+        });
+      });
+    });
+    file.stream.pipe(outStream);
+  }
+  _removeFile(_req, file, callback) {
+    import_fs.default.unlink(file.path, () => callback(null));
+  }
+};
+var storage = new AtomicDiskStorage(RESOLVED_UPLOADS_DIR);
 var upload = (0, import_multer.default)({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
