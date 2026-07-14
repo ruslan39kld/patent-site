@@ -6,7 +6,7 @@ import PdfViewer from './PdfViewer';
 interface ImageUploaderProps {
   value?: string;
   onChange: (base64: string) => void;
-  shape?: 'square' | 'circle' | 'banner' | 'landscape' | 'landscape_3_2' | 'portrait';
+  shape?: 'square' | 'circle' | 'banner' | 'landscape' | 'landscape_3_2' | 'portrait' | 'document';
   maxSizeMB?: number;
   className?: string;
 }
@@ -170,15 +170,20 @@ export default function ImageUploader({
     banner: 'aspect-[21/9] rounded-[12px]',
     landscape: 'aspect-[4/3] rounded-[12px]',
     landscape_3_2: 'aspect-[3/2] rounded-[12px]',
-    portrait: 'aspect-[3/4] rounded-[12px]'
+    portrait: 'aspect-[3/4] rounded-[12px]',
+    // Fixed 800x600 (4:3) frame for document-like scans/screenshots: neutral
+    // background, no decorative blurred backdrop, image always shown in full
+    // via object-contain (never cropped) — see ImageUploader's preview <img>.
+    document: 'aspect-[4/3] rounded-[12px]'
   };
 
   const isPdfValue = value?.startsWith('data:application/pdf');
+  const isDocumentShape = shape === 'document';
 
   return (
     <div className={cn('relative', className)}>
-      <input 
-        type="file" 
+      <input
+        type="file"
         ref={inputRef}
         onChange={(e) => {
           if (e.target.files && e.target.files.length > 0) {
@@ -189,14 +194,15 @@ export default function ImageUploader({
         accept="image/png, image/jpeg, image/webp, application/pdf"
         className="hidden"
       />
-      
+
       {value ? (
         <div className={cn(
-          "relative group overflow-hidden border border-[#E2E8F0] bg-black/5 flex items-center justify-center", 
+          "relative group overflow-hidden border border-[#E2E8F0] flex items-center justify-center",
+          isDocumentShape ? "bg-gray-50" : "bg-black/5",
           shapeClasses[shape]
         )}>
-          {!isPdfValue && (
-            <div 
+          {!isPdfValue && !isDocumentShape && (
+            <div
               className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70"
               style={{ backgroundImage: `url("${value}")` }}
             />
