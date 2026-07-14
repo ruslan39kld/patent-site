@@ -127,7 +127,7 @@ export default function ReviewsAdmin() {
               <div className="flex gap-6 items-start">
                  <div className="w-1/3">
                     <label className="block text-sm font-medium text-[#0F172A] mb-2">
-                      Фото клиента <span className="text-red-500">*</span>
+                      Фото клиента
                     </label>
                     <ImageUploader
                       value={editingReview.image}
@@ -135,11 +135,6 @@ export default function ReviewsAdmin() {
                       shape="circle"
                       className="w-full"
                     />
-                    {!editingReview.image && (
-                      <div className="text-xs text-red-500 mt-2 font-medium">
-                        Фото клиента обязательно — без него нельзя сохранить отзыв.
-                      </div>
-                    )}
                  </div>
                  <div className="w-2/3 space-y-4">
                     <div>
@@ -205,9 +200,7 @@ export default function ReviewsAdmin() {
                    handleSaveAll();
                    closeEdit();
                  }}
-                 disabled={!editingReview.image}
-                 title={!editingReview.image ? 'Добавьте фото клиента, чтобы сохранить' : undefined}
-                 className="px-5 py-2 rounded-lg bg-[#1B3F7A] text-white font-medium hover:bg-[#2960B0] disabled:bg-[#94A3B8] disabled:cursor-not-allowed transition-colors text-sm"
+                 className="px-5 py-2 rounded-lg bg-[#1B3F7A] text-white font-medium hover:bg-[#2960B0] transition-colors text-sm"
                >
                  Сохранить
                </button>
