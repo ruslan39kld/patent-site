@@ -1,7 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, X, RefreshCw, FileText } from 'lucide-react';
+import { UploadCloud, X, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
-import PdfViewer from './PdfViewer';
+import * as pdfjsLib from 'pdfjs-dist';
+// @ts-expect-error -- Vite ?url import, resolves to the worker script's final asset URL.
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 interface ImageUploaderProps {
   value?: string;
@@ -57,6 +61,63 @@ export default function ImageUploader({
       });
   };
 
+  // Shared by both images and PDFs (rendered to a canvas first): resize via
+  // canvas, then upload the resulting JPEG blob so it gets a real, unique,
+  // persistent URL under /uploads instead of being embedded as base64 in the
+  // app state. From here on a PDF scan is indistinguishable from a photo.
+  const processAndUpload = (source: HTMLImageElement | HTMLCanvasElement, baseName: string) => {
+    const canvas = document.createElement('canvas');
+    let width = source.width;
+    let height = source.height;
+    const MAX_DIMENSION = 1200;
+
+    if (width > height) {
+      if (width > MAX_DIMENSION) {
+        height = Math.round((height * MAX_DIMENSION) / width);
+        width = MAX_DIMENSION;
+      }
+    } else {
+      if (height > MAX_DIMENSION) {
+        width = Math.round((width * MAX_DIMENSION) / height);
+        height = MAX_DIMENSION;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setError('Не удалось обработать изображение');
+      setIsLoading(false);
+      return;
+    }
+    ctx.drawImage(source, 0, 0, width, height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError('Не удалось обработать изображение');
+        setIsLoading(false);
+        return;
+      }
+      uploadToServer(blob, `${baseName}.jpg`);
+    }, 'image/jpeg', 0.8);
+  };
+
+  // Renders the first page of a PDF onto a canvas at a resolution generous
+  // enough that text/photos stay legible after processAndUpload's resize.
+  const renderPdfFirstPage = async (file: File): Promise<HTMLCanvasElement> => {
+    const data = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context unavailable');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas;
+  };
+
   const handleFile = (file: File) => {
     setError(null);
     setIsLoading(true);
@@ -72,66 +133,23 @@ export default function ImageUploader({
       return;
     }
 
+    const baseName = file.name.replace(/\.[^./]+$/, '');
+
     if (isPdf) {
-      // PDFs are previewed inline via a data URI blob (see PdfViewer), so they
-      // stay client-side for now rather than going through /api/upload.
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onChange(e.target?.result as string);
-        setIsLoading(false);
-      };
-      reader.onerror = () => {
-        setError('Не удалось прочитать файл');
-        setIsLoading(false);
-      };
-      reader.readAsDataURL(file);
+      renderPdfFirstPage(file)
+        .then((canvas) => processAndUpload(canvas, baseName))
+        .catch(() => {
+          setError('Не удалось обработать PDF файл');
+          setIsLoading(false);
+        });
       return;
     }
 
-    // Compress the image via canvas, then upload the resulting blob to the
-    // server so it gets a real, unique, persistent URL under /uploads instead
-    // of being embedded as base64 in the app state (which only ever lived in
-    // this browser's localStorage and never reached other browsers/devices).
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
       const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_DIMENSION = 1200;
-
-        if (width > height) {
-          if (width > MAX_DIMENSION) {
-            height = Math.round((height * MAX_DIMENSION) / width);
-            width = MAX_DIMENSION;
-          }
-        } else {
-          if (height > MAX_DIMENSION) {
-            width = Math.round((width * MAX_DIMENSION) / height);
-            height = MAX_DIMENSION;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setError('Не удалось обработать изображение');
-          setIsLoading(false);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            setError('Не удалось обработать изображение');
-            setIsLoading(false);
-            return;
-          }
-          uploadToServer(blob, `${file.name.replace(/\.[^./]+$/, '')}.jpg`);
-        }, 'image/jpeg', 0.8);
-      };
+      img.onload = () => processAndUpload(img, baseName);
       img.onerror = () => {
         setError('Не удалось прочитать изображение');
         setIsLoading(false);
@@ -177,7 +195,6 @@ export default function ImageUploader({
     document: 'aspect-[4/3] rounded-[12px]'
   };
 
-  const isPdfValue = value?.startsWith('data:application/pdf');
   const isDocumentShape = shape === 'document';
 
   return (
@@ -201,26 +218,17 @@ export default function ImageUploader({
           isDocumentShape ? "bg-gray-50" : "bg-black/5",
           shapeClasses[shape]
         )}>
-          {!isPdfValue && !isDocumentShape && (
+          {!isDocumentShape && (
             <div
               className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70"
               style={{ backgroundImage: `url("${value}")` }}
             />
           )}
-          {isPdfValue ? (
-            <div className="absolute inset-0 overflow-hidden bg-white">
-               <PdfViewer 
-                 base64={value as string} 
-                 className="w-full h-full border-0 pointer-events-none" 
-               />
-            </div>
-          ) : (
-            <img 
-              src={value} 
-              alt="Preview" 
-              className="relative z-10 w-full h-full object-contain" 
-            />
-          )}
+          <img
+            src={value}
+            alt="Preview"
+            className="relative z-10 w-full h-full object-contain"
+          />
           <div className="absolute inset-0 z-20 bg-[#0F172A]/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <button 
               onClick={(e) => { e.preventDefault(); inputRef.current?.click(); }}
