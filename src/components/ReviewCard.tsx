@@ -46,9 +46,6 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
   // independent now — `reviewType` used to make them mutually exclusive but
   // no longer gates anything here, only whether each field is actually set.
   const hasReviewImage = !!review.reviewImage;
-  const isReviewImagePdf = !!review.reviewImage && (
-    review.reviewImage.startsWith('data:application/pdf') || /\.pdf($|\?)/i.test(review.reviewImage)
-  );
   const hasText = !!(review.text && review.text.trim());
   const textIsLong = hasText && review.text.length > TEXT_TRUNCATE_THRESHOLD;
 
@@ -76,41 +73,22 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
       {hasReviewImage && (
         <div className="mb-6 relative z-10">
           {/* Fixed 800x600 (4:3) frame — object-contain so any scan/photo
-              (portrait, A4, square) fits whole, never cropped. PDFs can't be
-              drawn as an <img>, so they get an icon card instead. */}
-          {isReviewImagePdf ? (
-            <div className="relative w-full aspect-[4/3] bg-gray-50 rounded-xl overflow-hidden border border-[#E5E7EB] flex flex-col items-center justify-center gap-3 p-6 text-center">
-              <div className="w-16 h-16 bg-[#EEF3FB] border border-[#E5E7EB] rounded-full flex items-center justify-center">
-                <FileText className="w-8 h-8 text-[#3B82F6]" />
-              </div>
-              <span className="text-sm font-medium text-[#1F2937] truncate max-w-full">PDF-документ</span>
-              <a
-                href={review.reviewImage}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#3B82F6] hover:bg-[#2563EB] text-white px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                <span>Открыть</span>
-              </a>
-            </div>
-          ) : (
-            <div
-              className="relative w-full aspect-[4/3] bg-gray-50 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-[#E5E7EB] group/img"
-              onClick={() => setSelectedMedia({ type: 'image', url: review.reviewImage!, name: `Отзыв от ${review.name}` })}
-            >
-              <img
-                src={review.reviewImage}
-                className="absolute inset-0 w-full h-full object-contain p-2"
-                alt="Скан/фото отзыва"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors z-20 flex items-center justify-center pointer-events-none">
-                <div className="w-10 h-10 rounded-full bg-white/90 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                  <ZoomIn className="w-5 h-5 text-[#1B3F7A]" />
-                </div>
+              (portrait, A4, square) fits whole, never cropped. */}
+          <div
+            className="relative w-full aspect-[4/3] bg-gray-50 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-[#E5E7EB] group/img"
+            onClick={() => setSelectedMedia({ type: 'image', url: review.reviewImage!, name: `Отзыв от ${review.name}` })}
+          >
+            <img
+              src={review.reviewImage}
+              className="absolute inset-0 w-full h-full object-contain p-2"
+              alt="Скан/фото отзыва"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors z-20 flex items-center justify-center pointer-events-none">
+              <div className="w-10 h-10 rounded-full bg-white/90 shadow-sm opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                <ZoomIn className="w-5 h-5 text-[#1B3F7A]" />
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
