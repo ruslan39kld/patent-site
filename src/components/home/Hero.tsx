@@ -91,7 +91,16 @@ export default function Hero() {
             <div className="w-full relative rounded-2xl max-w-[340px] md:max-w-[440px] lg:max-w-[440px] mx-auto lg:ml-auto lg:mr-0 h-[450px] md:h-[600px] flex items-center justify-center transition-transform duration-500 hover:-translate-y-2 group shadow-[0_0_60px_rgba(59,130,246,0.25)] hover:shadow-[0_0_80px_rgba(59,130,246,0.4)]">
               <div className="absolute -inset-0 bg-gradient-to-br from-[#3B82F6]/50 via-[#2563EB]/40 to-[#1B3F7A]/50 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
               <div className="relative w-full h-full rounded-2xl overflow-hidden bg-[#1B3F7A]/5 z-10 border border-[#3B82F6]/30">
-                {state.content?.heroImage ? (
+                {state.content?.heroMediaType === 'video' && state.content?.heroImage ? (
+                  <video
+                    src={state.content.heroImage}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="relative z-10 w-full h-full object-cover rounded-2xl"
+                  />
+                ) : state.content?.heroImage ? (
                   <>
                     {!isHeroImageLoaded && (
                       <div className="absolute inset-0 bg-slate-200 animate-pulse z-20 rounded-2xl" />

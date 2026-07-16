@@ -13,14 +13,25 @@ interface ImageUploaderProps {
   shape?: 'square' | 'circle' | 'banner' | 'landscape' | 'landscape_3_2' | 'portrait' | 'document';
   maxSizeMB?: number;
   className?: string;
+  // Opt-in only — every other field keeps accepting just images/PDF. When
+  // set, an MP4 is uploaded as-is (no canvas processing, which only makes
+  // sense for rasterizable content) to a separate, size-capped endpoint.
+  allowVideo?: boolean;
 }
 
-export default function ImageUploader({ 
-  value, 
-  onChange, 
-  shape = 'square', 
+const MAX_VIDEO_SIZE_MB = 5;
+
+function isVideoUrl(url: string) {
+  return /\.mp4($|\?)/i.test(url);
+}
+
+export default function ImageUploader({
+  value,
+  onChange,
+  shape = 'square',
   maxSizeMB = 10,
-  className 
+  className,
+  allowVideo = false,
 }: ImageUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,14 +40,14 @@ export default function ImageUploader({
 
   const UPLOAD_TIMEOUT_MS = 30000;
 
-  const uploadToServer = (blob: Blob, filename: string) => {
+  const uploadToServer = (blob: Blob, filename: string, endpoint: string = '/api/upload') => {
     const formData = new FormData();
     formData.append('file', blob, filename);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
-    fetch('/api/upload', { method: 'POST', body: formData, signal: controller.signal })
+    fetch(endpoint, { method: 'POST', body: formData, signal: controller.signal })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `Сервер вернул ошибку (${res.status})`);
@@ -121,10 +132,22 @@ export default function ImageUploader({
   const handleFile = (file: File) => {
     setError(null);
     setIsLoading(true);
+    const isVideo = allowVideo && file.type === 'video/mp4';
     const isPdf = file.type === 'application/pdf';
-    if (!file.type.startsWith('image/') && !isPdf) {
-      setError('Поддерживаются изображения и PDF файлы');
+    if (!isVideo && !file.type.startsWith('image/') && !isPdf) {
+      setError(allowVideo ? 'Поддерживаются изображения, PDF и MP4-видео' : 'Поддерживаются изображения и PDF файлы');
       setIsLoading(false);
+      return;
+    }
+    if (isVideo) {
+      if (file.size > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
+        setError(`Размер видео не должен превышать ${MAX_VIDEO_SIZE_MB}MB`);
+        setIsLoading(false);
+        return;
+      }
+      // Uploaded as-is — a canvas can't rasterize video, and re-encoding
+      // client-side is out of scope for a "swap the hero photo" field.
+      uploadToServer(file, file.name, '/api/upload-video');
       return;
     }
     if (file.size > maxSizeMB * 1024 * 1024) {
@@ -196,6 +219,7 @@ export default function ImageUploader({
   };
 
   const isDocumentShape = shape === 'document';
+  const isVideoPreview = !!value && isVideoUrl(value);
 
   return (
     <div className={cn('relative', className)}>
@@ -208,7 +232,7 @@ export default function ImageUploader({
           }
           e.target.value = '';
         }}
-        accept="image/png, image/jpeg, image/webp, application/pdf"
+        accept={allowVideo ? 'image/png, image/jpeg, image/webp, application/pdf, video/mp4' : 'image/png, image/jpeg, image/webp, application/pdf'}
         className="hidden"
       />
 
@@ -218,17 +242,26 @@ export default function ImageUploader({
           isDocumentShape ? "bg-gray-50" : "bg-black/5",
           shapeClasses[shape]
         )}>
-          {!isDocumentShape && (
+          {!isDocumentShape && !isVideoPreview && (
             <div
               className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70"
               style={{ backgroundImage: `url("${value}")` }}
             />
           )}
-          <img
-            src={value}
-            alt="Preview"
-            className="relative z-10 w-full h-full object-contain"
-          />
+          {isVideoPreview ? (
+            <video
+              src={value}
+              controls
+              muted
+              className="relative z-10 w-full h-full object-cover"
+            />
+          ) : (
+            <img
+              src={value}
+              alt="Preview"
+              className="relative z-10 w-full h-full object-contain"
+            />
+          )}
           <div className="absolute inset-0 z-20 bg-[#0F172A]/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <button 
               onClick={(e) => { e.preventDefault(); inputRef.current?.click(); }}

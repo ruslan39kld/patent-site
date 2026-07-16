@@ -144,6 +144,10 @@ export interface AdminContent {
   max?: string;
   stimit?: string;
   heroImage?: string;
+  // Distinguishes a heroImage URL that's actually an uploaded MP4 clip.
+  // Undefined/'image' (all existing records) means "render as a photo" —
+  // only 'video' switches Hero.tsx over to <video>.
+  heroMediaType?: 'image' | 'video';
   risksImage?: string;
   aboutImage?: string;
   quizTag?: string;
