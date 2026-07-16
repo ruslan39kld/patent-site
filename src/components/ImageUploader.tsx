@@ -10,7 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 interface ImageUploaderProps {
   value?: string;
   onChange: (base64: string) => void;
-  shape?: 'square' | 'circle' | 'banner' | 'landscape' | 'landscape_3_2' | 'portrait' | 'document';
+  shape?: 'square' | 'circle' | 'banner' | 'landscape' | 'landscape_3_2' | 'portrait' | 'document' | 'hero';
   maxSizeMB?: number;
   className?: string;
   // Opt-in only — every other field keeps accepting just images/PDF. When
@@ -215,7 +215,11 @@ export default function ImageUploader({
     // Fixed 800x600 (4:3) frame for document-like scans/screenshots: neutral
     // background, no decorative blurred backdrop, image always shown in full
     // via object-contain (never cropped) — see ImageUploader's preview <img>.
-    document: 'aspect-[4/3] rounded-[12px]'
+    document: 'aspect-[4/3] rounded-[12px]',
+    // 900x1000 (9:10) — the Hero-block expert photo/video specifically.
+    // Distinct from `portrait` (3:4), which aboutImage/certificates/patents
+    // still use — don't repoint those at this.
+    hero: 'aspect-[9/10] rounded-[12px]'
   };
 
   const isDocumentShape = shape === 'document';
