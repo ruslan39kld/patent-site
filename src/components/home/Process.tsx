@@ -53,7 +53,7 @@ export default function Process() {
                              className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70 transition-transform duration-700 group-hover/img:scale-125"
                              style={{ backgroundImage: `url("${step.image}")` }}
                            />
-                           <img src={step.image} alt={step.title} className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-105" />
+                           <img src={step.image} alt={step.title} loading="lazy" className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-105" />
                         </div>
                      ) : (
                        <div className="w-full h-[200px] bg-gradient-to-br from-[#EEF3FB] to-[#E2EAF8] border border-[#1B3F7A]/20 rounded-2xl flex flex-col items-center justify-center text-[#6B7280] transition-all duration-300 shadow-[0_0_15px_rgba(27,63,122,0.1)] group-hover:shadow-[0_0_30px_rgba(27,63,122,0.3)] group-hover:border-[#1B3F7A]/40 group-hover:-translate-y-1 relative overflow-hidden">

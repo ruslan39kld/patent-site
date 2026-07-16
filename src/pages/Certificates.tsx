@@ -9,14 +9,7 @@ export default function Certificates() {
   const [selectedCert, setSelectedCert] = useState<DocumentPreview | null>(null);
   const location = useLocation();
 
-  const extraCerts = Array.from({ length: 4 }).map((_, i) => ({
-    name: `Свидетельство Роспатента №${1000 + i}`,
-    type: i % 3 === 0 ? 'Патент на изобретение' : i % 2 === 0 ? 'Товарный знак' : 'Программа ЭВМ',
-  }));
-  
-  const allCertificates = state.content?.certificates && state.content.certificates.length > 0 
-    ? [...state.content.certificates, ...state.content?.patents || [], ...extraCerts]
-    : extraCerts;
+  const allCertificates = [...(state.content?.certificates || []), ...(state.content?.patents || [])];
 
   useEffect(() => {
     if (!location.hash) {
@@ -39,6 +32,11 @@ export default function Certificates() {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 pt-12">
+        {allCertificates.length === 0 && (
+          <div className="text-center py-16 text-[#6B7280] border border-[#E5E7EB] border-dashed rounded-2xl">
+            Свидетельства и документы пока не добавлены
+          </div>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
            {allCertificates.map((cert, i) => (
              <div 
@@ -51,7 +49,7 @@ export default function Certificates() {
                {/* Document Thumbnail */}
                <div className="w-full aspect-[1/1.4] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg mb-4 md:mb-5 relative overflow-hidden shadow-sm flex flex-col items-center justify-center p-2 group-hover:border-[#3B82F6]/30 transition-colors z-10 mx-auto max-w-[140px]">
                  {(cert as any).image ? (
-                   <img src={(cert as any).image} alt={cert.name} className="absolute inset-0 w-full h-full object-contain p-1" />
+                   <img src={(cert as any).image} alt={cert.name} loading="lazy" className="absolute inset-0 w-full h-full object-contain p-1" />
                  ) : (
                    <React.Fragment>
                      <div className="absolute top-2 right-2 flex flex-col gap-[2px]">
