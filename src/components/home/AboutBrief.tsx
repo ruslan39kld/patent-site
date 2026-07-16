@@ -117,16 +117,27 @@ export default function AboutBrief() {
                
                {/* Inner Image Wrapper */}
                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-inner bg-slate-200">
-                 {!isAboutImageLoaded && (
-                   <div className="absolute inset-0 bg-slate-200 animate-pulse z-20" />
+                 {state.content?.aboutImage ? (
+                   <>
+                     {!isAboutImageLoaded && (
+                       <div className="absolute inset-0 bg-slate-200 animate-pulse z-20" />
+                     )}
+                     <img
+                       src={state.content.aboutImage}
+                       alt="Виктория Тарасова"
+                       onLoad={() => setIsAboutImageLoaded(true)}
+                       className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 group-hover:scale-105 ${isAboutImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                     />
+                   </>
+                 ) : (
+                   // No photo uploaded yet (HomeAdmin → "8. Обо мне") — a
+                   // branded placeholder, not a stock photo of an unrelated
+                   // person standing in for the site owner.
+                   <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1B3F7A] to-[#3B82F6]">
+                     <Shield className="w-20 h-20 md:w-28 md:h-28 text-white/40" />
+                   </div>
                  )}
-                 <img 
-                   src={state.content?.aboutImage || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop"} 
-                   alt="Виктория Тарасова" 
-                   onLoad={() => setIsAboutImageLoaded(true)}
-                   className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 group-hover:scale-105 ${isAboutImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                 />
-                 
+
                  {/* Internal Edge light Blur */}
                  <div className="absolute inset-0 shadow-[inset_0_0_30px_10px_rgba(255,255,255,0.4)] pointer-events-none z-10 transition-all duration-500"></div>
                  
@@ -203,7 +214,7 @@ export default function AboutBrief() {
                          className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-60"
                          style={{ backgroundImage: `url("${(cert as any).image}")` }}
                        />
-                       <img src={(cert as any).image} alt={cert.name} className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
+                       <img src={(cert as any).image} alt={cert.name} loading="lazy" className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
                      </>
                    ) : (
                      <React.Fragment>
@@ -261,7 +272,7 @@ export default function AboutBrief() {
                          className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-60"
                          style={{ backgroundImage: `url("${(patent as any).image}")` }}
                        />
-                       <img src={(patent as any).image} alt={patent.name} className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
+                       <img src={(patent as any).image} alt={patent.name} loading="lazy" className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
                      </>
                    ) : (
                      <React.Fragment>

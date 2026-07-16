@@ -66,9 +66,10 @@ export default function ServicesGrid() {
                   className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70 group-hover:scale-125 transition-transform duration-700"
                   style={{ backgroundImage: `url("${svc.image || images[i] || images[0]}")` }}
                 />
-                <img 
-                  src={svc.image || images[i] || images[0]} 
+                <img
+                  src={svc.image || images[i] || images[0]}
                   alt={svc.title}
+                  loading="lazy"
                   className="relative z-10 w-full h-full object-contain opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 ease-out"
                 />
                 

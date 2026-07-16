@@ -43,9 +43,10 @@ export default function Risks() {
                     className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70 transition-transform duration-700 group-hover/img:scale-125"
                     style={{ backgroundImage: `url("${state.content.risksImage}")` }}
                   />
-                  <img 
-                    src={state.content.risksImage} 
-                    alt="Риски" 
+                  <img
+                    src={state.content.risksImage}
+                    alt="Риски"
+                    loading="lazy"
                     className="relative z-10 w-full h-full object-contain transition-transform duration-700 group-hover/img:scale-105"
                   />
                 </>

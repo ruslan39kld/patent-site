@@ -19,6 +19,7 @@ function ReviewAvatar({ review, size }: { review: ReviewItem; size: number }) {
     <img
       src={review.image}
       alt={review.name}
+      loading="lazy"
       style={{ width: size, height: size }}
       className="rounded-2xl object-cover mr-5 shrink-0 shadow-[0_0_20px_rgba(59,130,246,0.3)] border border-[#E5E7EB]"
     />
@@ -80,6 +81,7 @@ export default function ReviewCard({ review, className }: ReviewCardProps) {
           >
             <img
               src={review.reviewImage}
+              loading="lazy"
               className="absolute inset-0 w-full h-full object-contain p-2"
               alt="Скан/фото отзыва"
             />

@@ -56,7 +56,7 @@ export default function CustomBlocksRenderer({ insertAfter }: { insertAfter?: st
                       className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70 group-hover/img:scale-125 transition-transform duration-700"
                       style={{ backgroundImage: `url("${block.image}")` }}
                     />
-                    <img src={block.image} alt={block.title} className="relative z-10 w-full h-[300px] md:h-[400px] rounded-2xl shadow-xl object-contain drop-shadow-lg" />
+                    <img src={block.image} alt={block.title} loading="lazy" className="relative z-10 w-full h-[300px] md:h-[400px] rounded-2xl shadow-xl object-contain drop-shadow-lg" />
                   </div>
                 </div>
               ) : block.type === 'text' ? (

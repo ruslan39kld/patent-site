@@ -35,7 +35,7 @@ export default function PricingHomeBlock() {
                 <div className="absolute -inset-[100%] bg-[linear-gradient(45deg,transparent_25%,rgba(59,130,246,0.05)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%] opacity-0 group-hover:opacity-100 group-hover:animate-[shimmer_3s_infinite] transition-opacity"></div>
                 
                 {pricingBlock.image ? (
-                   <img src={pricingBlock.image} alt="Цены" className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" />
+                   <img src={pricingBlock.image} alt="Цены" loading="lazy" className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover/image:scale-105" />
                 ) : (
                 <div className="relative z-10 flex flex-col items-center">
                   <div className="w-24 h-24 rounded-3xl shadow-[0_10px_30px_rgba(27,63,122,0.08)] flex items-center justify-center mb-8 transition-transform group-hover/image:scale-110 group-hover/image:-rotate-3 duration-500">
