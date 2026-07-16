@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { UploadCloud, X, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
+import MediaFrame from './MediaFrame';
 import * as pdfjsLib from 'pdfjs-dist';
 // @ts-expect-error -- Vite ?url import, resolves to the worker script's final asset URL.
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -216,10 +217,10 @@ export default function ImageUploader({
     // background, no decorative blurred backdrop, image always shown in full
     // via object-contain (never cropped) — see ImageUploader's preview <img>.
     document: 'aspect-[4/3] rounded-[12px]',
-    // 900x1000 (9:10) — the Hero-block expert photo/video specifically.
-    // Distinct from `portrait` (3:4), which aboutImage/certificates/patents
-    // still use — don't repoint those at this.
-    hero: 'aspect-[9/10] rounded-[12px]'
+    // 800x1000 (4:5) — the expert photo/video fields (Hero-блок, Обо мне)
+    // specifically. Distinct from `portrait` (3:4), which certificates/
+    // patents still use — don't repoint those at this.
+    hero: 'aspect-[4/5] rounded-[12px]'
   };
 
   const isDocumentShape = shape === 'document';
@@ -246,30 +247,45 @@ export default function ImageUploader({
           isDocumentShape ? "bg-gray-50" : "bg-black/5",
           shapeClasses[shape]
         )}>
-          {!isDocumentShape && !isVideoPreview && (
-            <div
-              className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70"
-              style={{ backgroundImage: `url("${value}")` }}
-            />
-          )}
-          {isVideoPreview ? (
-            // No controls — this is a WYSIWYG preview of how it'll appear
-            // on the public site (autoplaying, looping, silent), not a
-            // player for the admin to operate by hand.
-            <video
+          {shape === 'hero' ? (
+            // Same two-layer blurred-mirror-fill treatment as the public
+            // Hero/About renders, so the admin sees exactly what a visitor
+            // will (WYSIWYG) instead of empty letterbox bars for clips/
+            // photos that aren't natively 4:5.
+            <MediaFrame
               src={value}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="relative z-10 w-full h-full object-contain"
+              mediaType={isVideoPreview ? 'video' : 'image'}
+              alt="Preview"
+              roundedClassName="rounded-[12px]"
             />
           ) : (
-            <img
-              src={value}
-              alt="Preview"
-              className="relative z-10 w-full h-full object-contain"
-            />
+            <>
+              {!isDocumentShape && !isVideoPreview && (
+                <div
+                  className="absolute inset-0 bg-cover bg-center blur-md scale-110 opacity-70"
+                  style={{ backgroundImage: `url("${value}")` }}
+                />
+              )}
+              {isVideoPreview ? (
+                // No controls — this is a WYSIWYG preview of how it'll appear
+                // on the public site (autoplaying, looping, silent), not a
+                // player for the admin to operate by hand.
+                <video
+                  src={value}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="relative z-10 w-full h-full object-contain"
+                />
+              ) : (
+                <img
+                  src={value}
+                  alt="Preview"
+                  className="relative z-10 w-full h-full object-contain"
+                />
+              )}
+            </>
           )}
           <div className="absolute inset-0 z-20 bg-[#0F172A]/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <button 

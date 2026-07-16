@@ -52,6 +52,15 @@ export default function HomeAdmin() {
     updateState({ ...state, content: next });
   };
 
+  // Same atomic-update reasoning as updateHeroMedia above — aboutImage and
+  // aboutMediaType must land in the same setContent()/updateState() call.
+  const updateAboutMedia = (url: string) => {
+    const mediaType: 'image' | 'video' = url.toLowerCase().endsWith('.mp4') ? 'video' : 'image';
+    const next = { ...content, aboutImage: url, aboutMediaType: mediaType };
+    setContent(next);
+    updateState({ ...state, content: next });
+  };
+
   const updateArrayItem = (arrayKey: string, index: number, field: string, value: any) => {
     const newArr = [...(content[arrayKey] ||[])];
     newArr[index] = { ...newArr[index], [field]: value };
@@ -244,7 +253,7 @@ export default function HomeAdmin() {
                  <div>
                    <div className="flex justify-between items-end mb-2">
                      <label className="block text-xs font-bold text-[#64748B] uppercase tracking-wider">Изображение или видео эксперта в Hero-блоке</label>
-                     <span className="text-xs text-[#64748B]">Фото: 900 × 1000 px. Видео: MP4, до 5 МБ</span>
+                     <span className="text-xs text-[#64748B]">Фото: 800 × 1000 px. Видео: MP4 (H.264), до 5 МБ</span>
                    </div>
                    <ImageUploader
                      value={content.heroImage || ''}
@@ -564,13 +573,14 @@ export default function HomeAdmin() {
                  <div>
                    <div className="flex justify-between items-end mb-2">
                      <label className="block text-xs font-bold text-[#64748B] uppercase tracking-wider">Основное изображение эксперта</label>
-                     <span className="text-xs text-[#64748B]">Рекомендуемый размер: 800 × 1000 px</span>
+                     <span className="text-xs text-[#64748B]">Фото: 800 × 1000 px. Видео: MP4 (H.264), до 5 МБ</span>
                    </div>
-                   <ImageUploader 
-                     value={content.aboutImage || ''} 
-                     onChange={(base64) => updateContent('aboutImage', base64)} 
-                     className="w-full max-w-sm" 
-                     shape="portrait" 
+                   <ImageUploader
+                     value={content.aboutImage || ''}
+                     onChange={updateAboutMedia}
+                     className="w-full max-w-sm"
+                     shape="hero"
+                     allowVideo
                    />
                  </div>
                  
