@@ -2049,8 +2049,19 @@ app.get("/api/gigachat/ping", async (_req, res) => {
   res.json({ oauth, chat });
 });
 var distPath = import_path.default.join(process.cwd(), "dist");
-app.use(import_express.default.static(distPath));
+app.use("/assets", import_express.default.static(import_path.default.join(distPath, "assets"), {
+  maxAge: "1y",
+  immutable: true
+}));
+app.use(import_express.default.static(distPath, {
+  setHeaders: (res, filePath) => {
+    if (import_path.default.basename(filePath) === "index.html") {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  }
+}));
 app.get("*", (_req, res) => {
+  res.set("Cache-Control", "no-cache");
   res.sendFile(import_path.default.join(distPath, "index.html"));
 });
 app.listen(PORT, "0.0.0.0", () => {
