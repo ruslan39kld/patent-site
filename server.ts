@@ -260,6 +260,24 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
+// Separate endpoint (rather than widening /api/upload's fileFilter) so every
+// other caller — review scans, certificate/patent images, avatars — keeps
+// rejecting anything that isn't image/PDF; only the Hero-block admin form
+// talks to this one, and only for its optional video-instead-of-photo field.
+const uploadVideo = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'video/mp4') cb(null, true);
+    else cb(new Error('Допускается только видео в формате MP4'));
+  },
+});
+
+app.post('/api/upload-video', uploadVideo.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Файл не получен' });
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
+
 app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err) return res.status(400).json({ error: err.message || 'Upload error' });
   next();

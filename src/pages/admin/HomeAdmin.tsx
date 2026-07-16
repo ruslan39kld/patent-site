@@ -41,7 +41,17 @@ export default function HomeAdmin() {
     setContent(next);
     updateState({ ...state, content: next });
   };
-  
+
+  // heroImage and heroMediaType must land together — two separate
+  // updateContent() calls would each spread from the same stale `content`
+  // closure and the second call would silently drop the first's change.
+  const updateHeroMedia = (url: string) => {
+    const mediaType: 'image' | 'video' = url.toLowerCase().endsWith('.mp4') ? 'video' : 'image';
+    const next = { ...content, heroImage: url, heroMediaType: mediaType };
+    setContent(next);
+    updateState({ ...state, content: next });
+  };
+
   const updateArrayItem = (arrayKey: string, index: number, field: string, value: any) => {
     const newArr = [...(content[arrayKey] ||[])];
     newArr[index] = { ...newArr[index], [field]: value };
@@ -233,14 +243,15 @@ export default function HomeAdmin() {
 
                  <div>
                    <div className="flex justify-between items-end mb-2">
-                     <label className="block text-xs font-bold text-[#64748B] uppercase tracking-wider">Изображение эксперта в Hero-блоке</label>
-                     <span className="text-xs text-[#64748B]">Рекомендуемый размер: 800 × 1000 px</span>
+                     <label className="block text-xs font-bold text-[#64748B] uppercase tracking-wider">Изображение или видео эксперта в Hero-блоке</label>
+                     <span className="text-xs text-[#64748B]">Фото: 800 × 1000 px. Видео: MP4, до 5 МБ</span>
                    </div>
-                   <ImageUploader 
-                     value={content.heroImage || ''} 
-                     onChange={(base64) => updateContent('heroImage', base64)} 
-                     className="w-full max-w-sm" 
-                     shape="portrait" 
+                   <ImageUploader
+                     value={content.heroImage || ''}
+                     onChange={updateHeroMedia}
+                     className="w-full max-w-sm"
+                     shape="portrait"
+                     allowVideo
                    />
                  </div>
               </div>
