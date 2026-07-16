@@ -5,6 +5,8 @@ import { Save, ChevronDown, ChevronRight, Plus, Trash2, GripVertical, FileImage,
 import { useToast } from './AdminLayout';
 import BuilderAdmin from './BuilderAdmin';
 
+const MAX_ON_HOME = 5;
+
 export default function HomeAdmin() {
   const { state, updateState } = useData();
   const [content, setContent] = useState(state.content);
@@ -96,6 +98,23 @@ export default function HomeAdmin() {
     const next = { ...content, [arrayKey]: newArr };
     setContent(next);
     updateState({ ...state, content: next });
+  };
+
+  // Certificates and patents each cap at MAX_ON_HOME independently — the
+  // homepage teaser blocks aren't meant to grow unbounded as the admin
+  // archives more documents, unlike the full /certificates listing page.
+  const toggleOnHome = (arrayKey: 'certificates' | 'patents', index: number) => {
+    const arr = content[arrayKey] || [];
+    const item = arr[index];
+    if (!item) return;
+    if (!item.onHome) {
+      const onHomeCount = arr.filter((it: any) => it.onHome === true).length;
+      if (onHomeCount >= MAX_ON_HOME) {
+        toast(`Максимум ${MAX_ON_HOME} на главной странице — сначала отключите одну из выбранных`, 'error');
+        return;
+      }
+    }
+    updateArrayItem(arrayKey, index, 'onHome', !item.onHome);
   };
 
   return (
@@ -599,8 +618,13 @@ export default function HomeAdmin() {
            {openTab === 'certificates' && (
               <div className="space-y-6">
                  <div className="flex justify-between items-center border-b pb-4">
-                    <h2 className="text-xl font-bold">Сертификаты</h2>
-                    <button onClick={() => addArrayItem('certificates', { name: 'Новый сертификат', type: 'Тип', active: true })} className="text-sm bg-[#1B3F7A]/10 text-[#0F172A] font-bold px-3 py-1.5 rounded flex items-center hover:bg-[#1B3F7A]/20 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-xl font-bold">Сертификаты</h2>
+                      <span className="text-xs font-bold text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-full">
+                        На главной: {(content.certificates || []).filter((c: any) => c.onHome === true).length} / {MAX_ON_HOME}
+                      </span>
+                    </div>
+                    <button onClick={() => addArrayItem('certificates', { name: 'Новый сертификат', type: 'Тип', active: true, onHome: false })} className="text-sm bg-[#1B3F7A]/10 text-[#0F172A] font-bold px-3 py-1.5 rounded flex items-center hover:bg-[#1B3F7A]/20 transition-colors">
                        <Plus className="w-4 h-4 mr-1" /> Добавить
                     </button>
                  </div>
@@ -619,12 +643,22 @@ export default function HomeAdmin() {
                                  <span className="text-xs font-bold text-[#64748B] uppercase">Скан документа</span>
                                  <span className="text-xs text-[#64748B]">Рекомендуемый размер: 600 × 800 px</span>
                                </div>
-                               <ImageUploader 
-                                 value={cert.image || ''} 
-                                 onChange={(base64) => updateArrayItem('certificates', i, 'image', base64)} 
-                                 className="w-32" 
-                                 shape="portrait" 
+                               <ImageUploader
+                                 value={cert.image || ''}
+                                 onChange={(base64) => updateArrayItem('certificates', i, 'image', base64)}
+                                 className="w-32"
+                                 shape="portrait"
                                />
+                             </div>
+                             <div className="md:col-span-2">
+                               <label className="flex items-center cursor-pointer w-fit">
+                                 <div className="relative">
+                                   <input type="checkbox" className="sr-only" checked={cert.onHome === true} onChange={() => toggleOnHome('certificates', i)} />
+                                   <div className={`block w-8 h-5 rounded-full transition-colors ${cert.onHome ? 'bg-[#10B981]' : 'bg-[#CBD5E1]'}`}></div>
+                                   <div className={`dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition-transform ${cert.onHome ? 'translate-x-3' : ''}`}></div>
+                                 </div>
+                                 <div className="ml-3 text-[13px] text-[#64748B] font-medium">Показывать на главной</div>
+                               </label>
                              </div>
                           </div>
                           <button onClick={() => removeArrayItem('certificates', i)} className="text-[#64748B] hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
@@ -639,8 +673,13 @@ export default function HomeAdmin() {
            {openTab === 'patents' && (
               <div className="space-y-6">
                  <div className="flex justify-between items-center border-b pb-4">
-                    <h2 className="text-xl font-bold">Патенты</h2>
-                    <button onClick={() => addArrayItem('patents', { name: 'Новый патент', type: 'Изобретение', active: true })} className="text-sm bg-[#1B3F7A]/10 text-[#0F172A] font-bold px-3 py-1.5 rounded flex items-center hover:bg-[#1B3F7A]/20 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-xl font-bold">Патенты</h2>
+                      <span className="text-xs font-bold text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-full">
+                        На главной: {(content.patents || []).filter((p: any) => p.onHome === true).length} / {MAX_ON_HOME}
+                      </span>
+                    </div>
+                    <button onClick={() => addArrayItem('patents', { name: 'Новый патент', type: 'Изобретение', active: true, onHome: false })} className="text-sm bg-[#1B3F7A]/10 text-[#0F172A] font-bold px-3 py-1.5 rounded flex items-center hover:bg-[#1B3F7A]/20 transition-colors">
                        <Plus className="w-4 h-4 mr-1" /> Добавить
                     </button>
                  </div>
@@ -659,12 +698,22 @@ export default function HomeAdmin() {
                                  <span className="text-xs font-bold text-[#64748B] uppercase">Скан документа</span>
                                  <span className="text-xs text-[#64748B]">Рекомендуемый размер: 600 × 800 px</span>
                                </div>
-                               <ImageUploader 
-                                 value={patent.image || ''} 
-                                 onChange={(base64) => updateArrayItem('patents', i, 'image', base64)} 
-                                 className="w-32" 
-                                 shape="portrait" 
+                               <ImageUploader
+                                 value={patent.image || ''}
+                                 onChange={(base64) => updateArrayItem('patents', i, 'image', base64)}
+                                 className="w-32"
+                                 shape="portrait"
                                />
+                             </div>
+                             <div className="md:col-span-2">
+                               <label className="flex items-center cursor-pointer w-fit">
+                                 <div className="relative">
+                                   <input type="checkbox" className="sr-only" checked={patent.onHome === true} onChange={() => toggleOnHome('patents', i)} />
+                                   <div className={`block w-8 h-5 rounded-full transition-colors ${patent.onHome ? 'bg-[#10B981]' : 'bg-[#CBD5E1]'}`}></div>
+                                   <div className={`dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition-transform ${patent.onHome ? 'translate-x-3' : ''}`}></div>
+                                 </div>
+                                 <div className="ml-3 text-[13px] text-[#64748B] font-medium">Показывать на главной</div>
+                               </label>
                              </div>
                           </div>
                           <button onClick={() => removeArrayItem('patents', i)} className="text-[#64748B] hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>

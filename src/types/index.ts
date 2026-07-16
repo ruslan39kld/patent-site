@@ -166,8 +166,8 @@ export interface AdminContent {
   cards?: { title: string; desc: string; linkTitle: string; linkHref: string; active?: boolean }[];
   risks?: { title: string; active?: boolean }[];
   process?: { title: string; desc?: string; image?: string; active?: boolean }[];
-  certificates?: { name: string; type: string; image?: string; active?: boolean }[];
-  patents?: { name: string; type: string; image?: string; active?: boolean }[];
+  certificates?: { name: string; type: string; image?: string; active?: boolean; onHome?: boolean }[];
+  patents?: { name: string; type: string; image?: string; active?: boolean; onHome?: boolean }[];
   pricingBlock?: {
     subtitle: string;
     title: string;

@@ -11,20 +11,30 @@ export default function AboutBrief() {
   const [selectedCert, setSelectedCert] = useState<DocumentPreview | null>(null);
   const [isAboutImageLoaded, setIsAboutImageLoaded] = useState(false);
 
-  const certificates = state.content?.certificates || [
-    { name: 'Патент на изобретение №2770988', type: 'Изобретение' },
-    { name: 'Свидетельство на ТЗ №1103965', type: 'Товарный знак' },
-    { name: 'Промышленный образец №135489', type: 'Пром. образец' },
-    { name: 'Программа ЭВМ №2024611599', type: 'Программа ЭВМ' }
-  ];
+  // Homepage teaser blocks only ever show up to MAX_ON_HOME admin-selected
+  // items — the fallback demo data is exempt since it's never persisted
+  // (there's nothing for the admin to have opted in), and legacy records
+  // without an explicit onHome:true stay archive-only until re-opted in.
+  const MAX_ON_HOME = 5;
 
-  const patents = state.content?.patents || [
-    { name: 'Патент на изобретение №2770988', type: 'Изобретение' },
-    { name: 'Патент на изобретение №2856753', type: 'Изобретение' },
-    { name: 'Патент на изобретение №210294', type: 'Изобретение' },
-    { name: 'Патент на изобретение №2808928', type: 'Изобретение' },
-    { name: 'Патент на изобретение №2769621', type: 'Изобретение' }
-  ];
+  const certificates = state.content?.certificates
+    ? state.content.certificates.filter((c: any) => c.onHome === true).slice(0, MAX_ON_HOME)
+    : [
+        { name: 'Патент на изобретение №2770988', type: 'Изобретение' },
+        { name: 'Свидетельство на ТЗ №1103965', type: 'Товарный знак' },
+        { name: 'Промышленный образец №135489', type: 'Пром. образец' },
+        { name: 'Программа ЭВМ №2024611599', type: 'Программа ЭВМ' }
+      ];
+
+  const patents = state.content?.patents
+    ? state.content.patents.filter((p: any) => p.onHome === true).slice(0, MAX_ON_HOME)
+    : [
+        { name: 'Патент на изобретение №2770988', type: 'Изобретение' },
+        { name: 'Патент на изобретение №2856753', type: 'Изобретение' },
+        { name: 'Патент на изобретение №210294', type: 'Изобретение' },
+        { name: 'Патент на изобретение №2808928', type: 'Изобретение' },
+        { name: 'Патент на изобретение №2769621', type: 'Изобретение' }
+      ];
 
   const aboutCards = state.content?.aboutCards?.filter((c: any) => c.active !== false) || [
     { title: 'Официальный статус', desc: 'Действующий патентный поверенный РФ (рег. №1558). Несу ответственность за результат.' },
