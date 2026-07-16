@@ -1901,6 +1901,18 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "\u0424\u0430\u0439\u043B \u043D\u0435 \u043F\u043E\u043B\u0443\u0447\u0435\u043D" });
   res.json({ url: `/uploads/${req.file.filename}` });
 });
+var uploadVideo = (0, import_multer.default)({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "video/mp4") cb(null, true);
+    else cb(new Error("\u0414\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u0438\u0434\u0435\u043E \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 MP4"));
+  }
+});
+app.post("/api/upload-video", uploadVideo.single("file"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "\u0424\u0430\u0439\u043B \u043D\u0435 \u043F\u043E\u043B\u0443\u0447\u0435\u043D" });
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
 app.use((err, _req, res, next) => {
   if (err) return res.status(400).json({ error: err.message || "Upload error" });
   next();
