@@ -436,9 +436,29 @@ app.get('/api/gigachat/ping', async (_req, res) => {
   res.json({ oauth, chat });
 });
 
+// Vite content-hashes every filename under dist/assets, so a given URL's
+// content never changes in place — a new deploy always produces new
+// filenames, safe to cache for a full year. index.html is the opposite: it's
+// what tells the browser which hashed chunk to fetch, so it must always be
+// revalidated. Serving both through a single express.static(distPath) (the
+// previous setup) gave them the same default Cache-Control: max-age=0 —
+// technically revalidate-able, but weak enough that a stale cached/bfcached
+// index.html could keep referencing chunk filenames a newer deploy already
+// deleted, hanging until a hard refresh bypassed the cache entirely.
 const distPath = path.join(process.cwd(), 'dist');
-app.use(express.static(distPath));
+app.use('/assets', express.static(path.join(distPath, 'assets'), {
+  maxAge: '1y',
+  immutable: true,
+}));
+app.use(express.static(distPath, {
+  setHeaders: (res, filePath) => {
+    if (path.basename(filePath) === 'index.html') {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 app.get('*', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

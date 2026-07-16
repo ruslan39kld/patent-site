@@ -249,11 +249,16 @@ export default function ImageUploader({
             />
           )}
           {isVideoPreview ? (
+            // No controls — this is a WYSIWYG preview of how it'll appear
+            // on the public site (autoplaying, looping, silent), not a
+            // player for the admin to operate by hand.
             <video
               src={value}
-              controls
+              autoPlay
               muted
-              className="relative z-10 w-full h-full object-cover"
+              loop
+              playsInline
+              className="relative z-10 w-full h-full object-contain"
             />
           ) : (
             <img

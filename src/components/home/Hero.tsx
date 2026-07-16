@@ -98,7 +98,7 @@ export default function Hero() {
                     muted
                     loop
                     playsInline
-                    className="relative z-10 w-full h-full object-cover rounded-2xl"
+                    className="relative z-10 w-full h-full object-contain rounded-2xl"
                   />
                 ) : state.content?.heroImage ? (
                   <>
