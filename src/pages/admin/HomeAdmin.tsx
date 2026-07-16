@@ -244,13 +244,13 @@ export default function HomeAdmin() {
                  <div>
                    <div className="flex justify-between items-end mb-2">
                      <label className="block text-xs font-bold text-[#64748B] uppercase tracking-wider">Изображение или видео эксперта в Hero-блоке</label>
-                     <span className="text-xs text-[#64748B]">Фото: 800 × 1000 px. Видео: MP4, до 5 МБ</span>
+                     <span className="text-xs text-[#64748B]">Фото: 900 × 1000 px. Видео: MP4, до 5 МБ</span>
                    </div>
                    <ImageUploader
                      value={content.heroImage || ''}
                      onChange={updateHeroMedia}
                      className="w-full max-w-sm"
-                     shape="portrait"
+                     shape="hero"
                      allowVideo
                    />
                  </div>
