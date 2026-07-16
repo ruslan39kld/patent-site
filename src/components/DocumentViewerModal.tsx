@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FileSignature, ZoomIn, ZoomOut, X } from 'lucide-react';
 import Modal from './Modal';
-import PdfViewer from './PdfViewer';
 
 export interface DocumentPreview {
   name: string;
@@ -28,8 +27,6 @@ export default function DocumentViewerModal({ document, onClose }: DocumentViewe
   useEffect(() => {
     if (!document) setIsZoomed(false);
   }, [document]);
-
-  const isPdf = document?.image?.startsWith('data:application/pdf');
 
   return (
     <Modal
@@ -61,16 +58,14 @@ export default function DocumentViewerModal({ document, onClose }: DocumentViewe
               </div>
 
               <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex items-center gap-2 z-20">
-                {!isPdf && (
-                  <button
-                    onClick={() => setIsZoomed(z => !z)}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 hover:border-white/30 transition-all font-medium"
-                    title={isZoomed ? 'Уменьшить' : 'Увеличить'}
-                    aria-label="Zoom toggle"
-                  >
-                    {isZoomed ? <ZoomOut className="w-4 h-4 md:w-5 md:h-5" /> : <ZoomIn className="w-4 h-4 md:w-5 md:h-5" />}
-                  </button>
-                )}
+                <button
+                  onClick={() => setIsZoomed(z => !z)}
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 hover:border-white/30 transition-all font-medium"
+                  title={isZoomed ? 'Уменьшить' : 'Увеличить'}
+                  aria-label="Zoom toggle"
+                >
+                  {isZoomed ? <ZoomOut className="w-4 h-4 md:w-5 md:h-5" /> : <ZoomIn className="w-4 h-4 md:w-5 md:h-5" />}
+                </button>
                 <button
                   onClick={() => { onClose(); setIsZoomed(false); }}
                   className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white text-[#1B3F7A] hover:bg-gray-100 flex items-center justify-center transition-all"
@@ -83,20 +78,13 @@ export default function DocumentViewerModal({ document, onClose }: DocumentViewe
             </div>
 
             <div className="w-full p-4 md:p-8 bg-[#E2E8F0] flex-1 overflow-auto min-h-0 relative flex items-center justify-center">
-              {isPdf ? (
-                <PdfViewer
-                  base64={document.image!}
-                  className="w-full h-full min-h-[50vh] border-0 rounded-xl shadow-2xl bg-white"
-                />
-              ) : (
-                <img
-                  src={document.image || FALLBACK_IMAGE}
-                  alt={document.name}
-                  onClick={() => setIsZoomed(z => !z)}
-                  className={`max-w-full max-h-full w-auto h-auto object-contain rounded shadow-2xl bg-white transition-transform duration-300 ${isZoomed ? 'scale-150 cursor-zoom-out' : 'cursor-zoom-in'}`}
-                  loading="lazy"
-                />
-              )}
+              <img
+                src={document.image || FALLBACK_IMAGE}
+                alt={document.name}
+                onClick={() => setIsZoomed(z => !z)}
+                className={`max-w-full max-h-full w-auto h-auto object-contain rounded shadow-2xl bg-white transition-transform duration-300 ${isZoomed ? 'scale-150 cursor-zoom-out' : 'cursor-zoom-in'}`}
+                loading="lazy"
+              />
             </div>
           </div>
         </div>

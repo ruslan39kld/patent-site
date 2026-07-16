@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Award, Briefcase, FileSignature, Shield, Lock, ExternalLink, ArrowRight } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Modal from '../Modal';
-import PdfViewer from '../PdfViewer';
 import DocumentViewerModal, { DocumentPreview } from '../DocumentViewerModal';
 
 export default function AboutBrief() {
@@ -189,23 +188,13 @@ export default function AboutBrief() {
                  {/* Document Thumbnail */}
                  <div className="w-full aspect-[1/1.4] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg mb-4 md:mb-5 relative overflow-hidden shadow-sm flex flex-col items-center justify-center p-2 group-hover:border-[#3B82F6]/30 transition-colors z-10 mxauto max-w-[140px]">
                    {(cert as any).image ? (
-                     (cert as any).image.startsWith('data:application/pdf') ? (
-                       <div className="absolute inset-0 overflow-hidden pointer-events-none p-1">
-                          <PdfViewer 
-                            base64={(cert as any).image} 
-                            className="w-full h-full border-0 opacity-[0.98]" 
-                            tabIndex={-1}
-                          />
-                       </div>
-                     ) : (
-                       <>
-                         <div 
-                           className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-60"
-                           style={{ backgroundImage: `url("${(cert as any).image}")` }}
-                         />
-                         <img src={(cert as any).image} alt={cert.name} className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
-                       </>
-                     )
+                     <>
+                       <div
+                         className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-60"
+                         style={{ backgroundImage: `url("${(cert as any).image}")` }}
+                       />
+                       <img src={(cert as any).image} alt={cert.name} className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
+                     </>
                    ) : (
                      <React.Fragment>
                        <div className="absolute top-2 right-2 flex flex-col gap-[2px]">
@@ -257,23 +246,13 @@ export default function AboutBrief() {
                  {/* Document Thumbnail */}
                  <div className="w-full aspect-[1/1.4] bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg mb-4 md:mb-5 relative overflow-hidden shadow-sm flex flex-col items-center justify-center p-2 group-hover:border-[#3B82F6]/30 transition-colors z-10 mx-auto max-w-[140px]">
                    {(patent as any).image ? (
-                     (patent as any).image.startsWith('data:application/pdf') ? (
-                       <div className="absolute inset-0 overflow-hidden pointer-events-none p-1">
-                          <PdfViewer 
-                            base64={(patent as any).image} 
-                            className="w-full h-full border-0 opacity-[0.98]" 
-                            tabIndex={-1}
-                          />
-                       </div>
-                     ) : (
-                       <>
-                         <div 
-                           className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-60"
-                           style={{ backgroundImage: `url("${(patent as any).image}")` }}
-                         />
-                         <img src={(patent as any).image} alt={patent.name} className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
-                       </>
-                     )
+                     <>
+                       <div
+                         className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-60"
+                         style={{ backgroundImage: `url("${(patent as any).image}")` }}
+                       />
+                       <img src={(patent as any).image} alt={patent.name} className="relative z-10 w-full h-full object-contain drop-shadow-sm" />
+                     </>
                    ) : (
                      <React.Fragment>
                        <div className="absolute top-2 right-2 flex flex-col gap-[2px]">
