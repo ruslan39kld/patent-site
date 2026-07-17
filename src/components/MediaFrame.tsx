@@ -41,18 +41,19 @@ export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'ro
           playsInline
           webkit-playsinline="true"
           style={gpuLayerStyle}
-          className={cn('absolute inset-0 w-full h-full object-cover scale-110 blur-3xl brightness-[0.55]', roundedClassName)}
+          className={cn('absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-[0.55]', roundedClassName)}
         />
       ) : (
         <div
           style={{ ...gpuLayerStyle, backgroundImage: `url("${src}")` }}
-          className={cn('absolute inset-0 bg-cover bg-center scale-110 blur-3xl brightness-[0.55]', roundedClassName)}
+          className={cn('absolute inset-0 bg-cover bg-center scale-110 blur-xl brightness-[0.55]', roundedClassName)}
         />
       )}
-      {/* Extra atmospheric darkening on top of the blurred layer — a
-          fallback in case a browser's `filter: blur()` still renders too
-          crisp, so the background never reads as a legible duplicate. */}
-      <div className={cn('absolute inset-0 bg-black/25', roundedClassName)} />
+      {/* A faint extra darkening on top of the blurred layer — a fallback
+          in case a browser's `filter: blur()` still renders too crisp, but
+          kept barely-there so it doesn't stack with the blur into a solid
+          dark blob; the blur itself does the atmospheric work. */}
+      <div className={cn('absolute inset-0 bg-black/10', roundedClassName)} />
       {mediaType === 'video' ? (
         <video
           ref={fgVideoRef}
