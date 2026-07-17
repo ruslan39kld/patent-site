@@ -133,6 +133,23 @@ for (const section of SECTIONS) {
   }
 }
 
+// One-time migration: an already-seeded `content` row keeps whatever text an
+// admin saved (or whatever `initialData` had at seed time) regardless of
+// later `initialData` edits, so a since-renamed pricing blurb can be stuck
+// on the old wording forever. Mirrors the equivalent client-side migration
+// in DataContext.tsx, but that one only patches a browser's localStorage —
+// this patches the actual persisted row the server serves to everyone.
+{
+  const existingContent = getSection('content') as { pricingBlock?: { text?: string } } | null;
+  if (existingContent?.pricingBlock?.text?.includes('Мои гонорары')) {
+    existingContent.pricingBlock.text = existingContent.pricingBlock.text.replace(
+      'Мои гонорары фиксируются',
+      'Стоимость услуг фиксируется'
+    );
+    setSection('content', existingContent);
+  }
+}
+
 app.get('/api/data', (_req, res) => {
   const result: Record<string, unknown> = {};
   const revs: Record<string, number> = {};
