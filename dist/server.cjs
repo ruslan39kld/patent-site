@@ -1804,6 +1804,16 @@ for (const section of SECTIONS) {
     setSection(section, initialData[section] ?? null);
   }
 }
+{
+  const existingContent = getSection("content");
+  if (existingContent?.pricingBlock?.text?.includes("\u041C\u043E\u0438 \u0433\u043E\u043D\u043E\u0440\u0430\u0440\u044B")) {
+    existingContent.pricingBlock.text = existingContent.pricingBlock.text.replace(
+      "\u041C\u043E\u0438 \u0433\u043E\u043D\u043E\u0440\u0430\u0440\u044B \u0444\u0438\u043A\u0441\u0438\u0440\u0443\u044E\u0442\u0441\u044F",
+      "\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C \u0443\u0441\u043B\u0443\u0433 \u0444\u0438\u043A\u0441\u0438\u0440\u0443\u0435\u0442\u0441\u044F"
+    );
+    setSection("content", existingContent);
+  }
+}
 app.get("/api/data", (_req, res) => {
   const result = {};
   const revs = {};
