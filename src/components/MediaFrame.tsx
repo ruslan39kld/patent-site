@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { cn } from '../lib/utils';
+import { useVideoAutoplayOnVisible } from '../hooks/useVideoAutoplayOnVisible';
 
 interface MediaFrameProps {
   src: string;
@@ -17,44 +18,16 @@ interface MediaFrameProps {
 // (the "Instagram Stories" treatment), rather than asking the admin to
 // crop their file to an exact ratio by hand.
 export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'rounded-2xl', className }: MediaFrameProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (mediaType !== 'video' || !containerRef.current) return;
-    const videos = Array.from(containerRef.current.querySelectorAll('video'));
-    if (videos.length === 0) return;
-
-    videos.forEach((v) => {
-      // React's `muted` JSX prop only ever sets the DOM *property* — the
-      // HTML attribute never lands (facebook/react#10389). Some mobile
-      // browsers gate autoplay on the attribute being present at play()
-      // time, not just the property, so set both explicitly.
-      v.muted = true;
-      v.setAttribute('muted', '');
-    });
-
-    // A <video autoPlay> that's still off-screen when it mounts (e.g. a
-    // below-the-fold "Обо мне" section) reliably loads (readyState 4) but
-    // never actually starts on Chrome/Safari — it never runs the internal
-    // "potentially play" step until the element is near the viewport,
-    // leaving what looks like a stuck first frame instead of a playing
-    // clip. Calling play() once it's actually visible covers both the
-    // "already on screen at mount" and "scrolled into view later" cases.
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          (entry.target as HTMLVideoElement).play().catch(() => {});
-        }
-      });
-    }, { threshold: 0.01 });
-    videos.forEach((v) => observer.observe(v));
-    return () => observer.disconnect();
-  }, [mediaType, src]);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const fgVideoRef = useRef<HTMLVideoElement>(null);
+  useVideoAutoplayOnVisible(bgVideoRef, src);
+  useVideoAutoplayOnVisible(fgVideoRef, src);
 
   return (
-    <div ref={containerRef} className={cn('absolute inset-0 overflow-hidden', roundedClassName, className)}>
+    <div className={cn('absolute inset-0 overflow-hidden', roundedClassName, className)}>
       {mediaType === 'video' ? (
         <video
+          ref={bgVideoRef}
           src={src}
           autoPlay
           muted
@@ -71,6 +44,7 @@ export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'ro
       )}
       {mediaType === 'video' ? (
         <video
+          ref={fgVideoRef}
           src={src}
           autoPlay
           muted
