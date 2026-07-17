@@ -30,6 +30,18 @@ body {
   border-color: #C8A028;
 }
 
+/* Some Chromium forks (Yandex Browser in particular) skip compositing an
+   element's `filter: blur()`/`backdrop-filter: blur()` unless it's already
+   on its own GPU layer, painting it sharp instead — this affects every
+   decorative blurred glow/circle on the site, not just one component.
+   Forcing that layer here fixes it everywhere in one place. Safe to apply
+   globally: no element on the site combines a `blur-*` utility with its
+   own `transform` (verified against .animate-on-scroll below). */
+[class*="blur-"] {
+  transform: translateZ(0);
+  will-change: filter;
+}
+
 .animate-on-scroll {
   opacity: 0;
   transform: translateY(30px);
