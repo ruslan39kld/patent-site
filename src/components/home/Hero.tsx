@@ -2,11 +2,11 @@ import { ShieldCheck, ArrowRight } from 'lucide-react';
 import { useData } from '../../store/DataContext';
 import React, { useEffect, useState } from 'react';
 import CanvasParticles from './CanvasParticles';
+import MediaFrame from '../MediaFrame';
 
 export default function Hero() {
   const { state } = useData();
   const [years, setYears] = useState(0);
-  const [isHeroImageLoaded, setIsHeroImageLoaded] = useState(false);
 
   useEffect(() => {
     const duration = 1500;
@@ -88,34 +88,15 @@ export default function Hero() {
           </div>
           
           <div className="lg:col-span-5 relative flex flex-col animate-on-scroll stagger-2 order-first lg:order-none mb-12 lg:mb-0">
-            <div className="w-full relative rounded-2xl max-w-[340px] md:max-w-[440px] lg:max-w-[440px] mx-auto lg:ml-auto lg:mr-0 aspect-[9/10] flex items-center justify-center transition-transform duration-500 hover:-translate-y-2 group shadow-[0_0_60px_rgba(59,130,246,0.25)] hover:shadow-[0_0_80px_rgba(59,130,246,0.4)]">
+            <div className="w-full relative rounded-2xl max-w-[340px] md:max-w-[440px] lg:max-w-[440px] mx-auto lg:ml-auto lg:mr-0 aspect-[4/5] flex items-center justify-center transition-transform duration-500 hover:-translate-y-2 group shadow-[0_0_60px_rgba(59,130,246,0.25)] hover:shadow-[0_0_80px_rgba(59,130,246,0.4)]">
               <div className="absolute -inset-0 bg-gradient-to-br from-[#3B82F6]/50 via-[#2563EB]/40 to-[#1B3F7A]/50 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-500"></div>
               <div className="relative w-full h-full rounded-2xl overflow-hidden bg-[#1B3F7A]/5 z-10 border border-[#3B82F6]/30">
-                {state.content?.heroMediaType === 'video' && state.content?.heroImage ? (
-                  <video
+                {state.content?.heroImage ? (
+                  <MediaFrame
                     src={state.content.heroImage}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="relative z-10 w-full h-full object-contain rounded-2xl"
+                    mediaType={state.content?.heroMediaType === 'video' ? 'video' : 'image'}
+                    alt="Виктория Тарасова"
                   />
-                ) : state.content?.heroImage ? (
-                  <>
-                    {!isHeroImageLoaded && (
-                      <div className="absolute inset-0 bg-slate-200 animate-pulse z-20 rounded-2xl" />
-                    )}
-                    <div
-                      className={`absolute inset-0 bg-cover bg-center blur-md scale-110 transition-opacity duration-500 ${isHeroImageLoaded ? 'opacity-70' : 'opacity-0'}`}
-                      style={{ backgroundImage: `url("${state.content.heroImage}")` }}
-                    />
-                    <img
-                        src={state.content.heroImage}
-                        alt="Виктория Тарасова"
-                        onLoad={() => setIsHeroImageLoaded(true)}
-                        className={`relative z-10 w-full h-full object-contain rounded-2xl transition-all duration-500 ${isHeroImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
-                    />
-                  </>
                 ) : (
                   // No photo uploaded yet (HomeAdmin → "1. Hero-блок") — a
                   // branded placeholder, not a stock photo of an unrelated

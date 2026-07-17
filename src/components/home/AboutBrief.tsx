@@ -1,15 +1,18 @@
 import { useData } from '../../store/DataContext';
 import { Link } from 'react-router-dom';
 import { Award, Briefcase, FileSignature, Shield, Lock, ExternalLink, ArrowRight } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Modal from '../Modal';
 import DocumentViewerModal, { DocumentPreview } from '../DocumentViewerModal';
+import { useVideoAutoplayOnVisible } from '../../hooks/useVideoAutoplayOnVisible';
 
 export default function AboutBrief() {
   const { state } = useData();
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [selectedCert, setSelectedCert] = useState<DocumentPreview | null>(null);
   const [isAboutImageLoaded, setIsAboutImageLoaded] = useState(false);
+  const aboutVideoRef = useRef<HTMLVideoElement>(null);
+  useVideoAutoplayOnVisible(aboutVideoRef, state.content?.aboutImage || '');
 
   // Homepage teaser blocks only ever show up to MAX_ON_HOME admin-selected
   // items — the fallback demo data is exempt since it's never persisted
@@ -114,7 +117,7 @@ export default function AboutBrief() {
             
             {/* Full Height Wrapper - Aligned with Title and Buttons */}
             <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] lg:aspect-auto lg:h-full rounded-2xl border border-[#E5E7EB] shadow-[0_20px_50px_rgba(27,63,122,0.08)] group overflow-visible">
-               
+
                {/* Inner Image Wrapper */}
                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-inner bg-slate-200">
                  {state.content?.aboutImage ? (
@@ -122,12 +125,26 @@ export default function AboutBrief() {
                      {!isAboutImageLoaded && (
                        <div className="absolute inset-0 bg-slate-200 animate-pulse z-20" />
                      )}
-                     <img
-                       src={state.content.aboutImage}
-                       alt="Виктория Тарасова"
-                       onLoad={() => setIsAboutImageLoaded(true)}
-                       className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 group-hover:scale-105 ${isAboutImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                     />
+                     {state.content?.aboutMediaType === 'video' ? (
+                       <video
+                         ref={aboutVideoRef}
+                         src={state.content.aboutImage}
+                         autoPlay
+                         muted
+                         loop
+                         playsInline
+                         webkit-playsinline="true"
+                         onLoadedData={() => setIsAboutImageLoaded(true)}
+                         className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 group-hover:scale-105 ${isAboutImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                       />
+                     ) : (
+                       <img
+                         src={state.content.aboutImage}
+                         alt="Виктория Тарасова"
+                         onLoad={() => setIsAboutImageLoaded(true)}
+                         className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 group-hover:scale-105 ${isAboutImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                       />
+                     )}
                    </>
                  ) : (
                    // No photo uploaded yet (HomeAdmin → "8. Обо мне") — a

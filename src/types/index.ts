@@ -150,6 +150,10 @@ export interface AdminContent {
   heroMediaType?: 'image' | 'video';
   risksImage?: string;
   aboutImage?: string;
+  // Distinguishes an aboutImage URL that's actually an uploaded MP4 clip.
+  // Undefined/'image' (all existing records) means "render as a photo" —
+  // only 'video' switches AboutBrief.tsx over to <video>.
+  aboutMediaType?: 'image' | 'video';
   quizTag?: string;
   quizTitle?: string;
   quizSubtitle?: string;
