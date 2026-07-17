@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { CSSProperties, useRef } from 'react';
 import { cn } from '../lib/utils';
 import { useVideoAutoplayOnVisible } from '../hooks/useVideoAutoplayOnVisible';
 
@@ -23,6 +23,12 @@ export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'ro
   useVideoAutoplayOnVisible(bgVideoRef, src);
   useVideoAutoplayOnVisible(fgVideoRef, src);
 
+  // Some Chromium forks (Yandex Browser in particular) fail to composite an
+  // element's `filter: blur()` unless it's promoted to its own GPU layer
+  // first, and otherwise paint it as a sharp, unblurred duplicate. Forcing
+  // that layer explicitly makes the blur render reliably everywhere.
+  const gpuLayerStyle: CSSProperties = { transform: 'translateZ(0)', willChange: 'filter' };
+
   return (
     <div className={cn('absolute inset-0 overflow-hidden', roundedClassName, className)}>
       {mediaType === 'video' ? (
@@ -34,14 +40,19 @@ export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'ro
           loop
           playsInline
           webkit-playsinline="true"
-          className={cn('absolute inset-0 w-full h-full object-cover scale-110 blur-2xl brightness-[0.6]', roundedClassName)}
+          style={gpuLayerStyle}
+          className={cn('absolute inset-0 w-full h-full object-cover scale-110 blur-3xl brightness-[0.55]', roundedClassName)}
         />
       ) : (
         <div
-          className={cn('absolute inset-0 bg-cover bg-center scale-110 blur-2xl brightness-[0.6]', roundedClassName)}
-          style={{ backgroundImage: `url("${src}")` }}
+          style={{ ...gpuLayerStyle, backgroundImage: `url("${src}")` }}
+          className={cn('absolute inset-0 bg-cover bg-center scale-110 blur-3xl brightness-[0.55]', roundedClassName)}
         />
       )}
+      {/* Extra atmospheric darkening on top of the blurred layer — a
+          fallback in case a browser's `filter: blur()` still renders too
+          crisp, so the background never reads as a legible duplicate. */}
+      <div className={cn('absolute inset-0 bg-black/25', roundedClassName)} />
       {mediaType === 'video' ? (
         <video
           ref={fgVideoRef}
