@@ -27,7 +27,14 @@ export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'ro
   // element's `filter: blur()` unless it's promoted to its own GPU layer
   // first, and otherwise paint it as a sharp, unblurred duplicate. Forcing
   // that layer explicitly makes the blur render reliably everywhere.
-  const gpuLayerStyle: CSSProperties = { transform: 'translateZ(0)', willChange: 'filter' };
+  // `backfaceVisibility: hidden` is the standard companion to this trick —
+  // it's what makes some engines actually keep the element on its own
+  // composited layer instead of just accepting then dropping it.
+  const gpuLayerStyle: CSSProperties = {
+    transform: 'translate3d(0,0,0)',
+    willChange: 'filter',
+    backfaceVisibility: 'hidden',
+  };
 
   return (
     <div className={cn('absolute inset-0 overflow-hidden', roundedClassName, className)}>
@@ -41,12 +48,12 @@ export default function MediaFrame({ src, mediaType, alt, roundedClassName = 'ro
           playsInline
           webkit-playsinline="true"
           style={gpuLayerStyle}
-          className={cn('absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-[0.55]', roundedClassName)}
+          className={cn('absolute inset-0 w-full h-full object-cover scale-110 blur-md brightness-[0.55]', roundedClassName)}
         />
       ) : (
         <div
           style={{ ...gpuLayerStyle, backgroundImage: `url("${src}")` }}
-          className={cn('absolute inset-0 bg-cover bg-center scale-110 blur-xl brightness-[0.55]', roundedClassName)}
+          className={cn('absolute inset-0 bg-cover bg-center scale-110 blur-md brightness-[0.55]', roundedClassName)}
         />
       )}
       {/* A faint extra darkening on top of the blurred layer — a fallback

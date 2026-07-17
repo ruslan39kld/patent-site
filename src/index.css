@@ -38,8 +38,9 @@ body {
    globally: no element on the site combines a `blur-*` utility with its
    own `transform` (verified against .animate-on-scroll below). */
 [class*="blur-"] {
-  transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
   will-change: filter;
+  backface-visibility: hidden;
 }
 
 .animate-on-scroll {
